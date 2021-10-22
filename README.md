@@ -1,3 +1,2 @@
 # kubeczki.github.io
-Stronka
-go to http://kubeczki.github.io
+Go to http://kubeczki.github.io
