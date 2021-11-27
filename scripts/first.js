@@ -1,1 +1,1 @@
-window.alert("penis");
+window.alert("W budowie...");
