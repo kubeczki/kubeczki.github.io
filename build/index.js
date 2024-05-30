@@ -19,6 +19,7 @@ async function init() {
 		initial: 1024,  // Initial size in 64KB pages (1024 * 64KB = 64MB)
 		maximum: 1024  // Maximum size in 64KB pages (optional)
 	});
+	let isApplicationFocused = !document.hidden;
 	
 	// functions exported from JS to WASM
 	function callWindowAlert() {
@@ -26,6 +27,9 @@ async function init() {
 	}
 	function getMemoryCapacity() {
 		return memory.buffer.byteLength;
+	}
+	function getIsApplicationFocused() {
+		return isApplicationFocused;
 	}
 	
 	// TODO: I THINK that if you want a function
@@ -40,6 +44,7 @@ async function init() {
 				memory: memory,
 				callWindowAlert,
 				getMemoryCapacity,
+				getIsApplicationFocused,
 			}
 		}
 	);
@@ -93,6 +98,10 @@ async function init() {
 		}
 	}
 
+	document.addEventListener("visibilitychange", () => {
+		if (document.hidden) instance.exports.pauseGame();
+		console.log(!document.hidden ? 'App has just gained focus' : 'App has just lost focus');
+	});
     document.addEventListener('keydown', event => {
 		// TODO: keyCode is deprecated, if anything, you should
 		// unfortunately use code

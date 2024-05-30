@@ -258,6 +258,8 @@ global i32 lastItem;
 
 #define GEN_ID (__LINE__)
 
+global b32 isPaused;
+
 void clearFramebuffer(u32 color)
 {
 	for (int i = 0; i < viewportSize; i++)
@@ -533,6 +535,11 @@ void setViewportDimensions(i32 newWidth, i32 newHeight, i32 newSize)
 	viewportSize = newSize;
 }
 
+void pauseGame() 
+{
+	isPaused = 1;
+}
+
 u32 getInputAddress()
 {
 	return (u32)&frameInput;
@@ -658,6 +665,7 @@ function byte UI_button(i32 id, char *label, i32 x, i32 y)
 ////////////////////
 extern void callWindowAlert();
 extern u32 getMemoryCapacity();
+extern b32 getIsApplicationFocused();
 
 // TODO: 
 // struct {} input;
@@ -704,6 +712,13 @@ u32 getMaxViewportHeight()
 
 void doFrame(f32 dt)
 {
+	if (frameInput.keyboard.space.justPressed) isPaused = !isPaused; 
+	if (isPaused) 
+	{
+		drawRect(350, 550, getTextSize("GAME PAUSED. PRESS SPACE TO RESUME", 8)+200, 200, 0xff);
+		renderText("GAME PAUSED. PRESS SPACE TO RESUME", 400, 600, 8, 0xff000000);
+		return;
+	}
 	// gather and process input
 	// TODO: ok, so chatGPT came up with an idea, callbacks are asynchronous, but I could just make it
 	// so that on callback, I push the keycode and keymods to an event queue!
