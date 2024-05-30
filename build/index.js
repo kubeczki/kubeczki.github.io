@@ -71,23 +71,6 @@ async function init() {
 	gameCanvas.style.width = Math.min(window.innerWidth, maxViewportWidth) + "px";
     gameCanvas.style.height = Math.min(window.innerHeight, maxViewportHeight) + "px";
 
-	window.addEventListener("resize", e => {
-		// TODO: Current, more performant solution doesn't create a new ImageData
-		// every frame, but the cost is that we can't update its width and height (ugh)
-		// honestly, maybe could do like a check every x seconds and then we'd
-		// create a new one with updated dimensions
-		/*
-		viewportWidth = Math.ceil(Math.min(e.target.innerWidth, maxViewportWidth) * ratio);
-		viewportHeight = Math.ceil(Math.min(e.target.innerHeight, maxViewportHeight) * ratio);
-		viewportSize = viewportWidth * viewportHeight;
-		instance.exports.setViewportDimensions(viewportWidth, viewportHeight, viewportSize);
-		gameCanvas.width = viewportWidth;
-		gameCanvas.height = viewportHeight;
-		gameCanvas.style.width = Math.min(e.target.innerWidth, maxViewportWidth) + "px";
-	    gameCanvas.style.height = Math.min(e.target.innerHeight, maxViewportHeight) + "px";
-		*/
-	});
-
 	const inputAddress = instance.exports.getInputAddress();
 	const inputSize = instance.exports.getInputSize();
 	const buttonStateSize = instance.exports.getButtonStateSize();
@@ -213,7 +196,19 @@ async function init() {
 	instance.exports.init();
 	const framebufferAddr = instance.exports.getFramebufferAddr();
 
-	const frame = new ImageData(viewportWidth, viewportHeight);
+	let frame = new ImageData(viewportWidth, viewportHeight);
+
+	window.addEventListener("resize", e => {
+		viewportWidth = Math.ceil(Math.min(e.target.innerWidth, maxViewportWidth) * ratio);
+		viewportHeight = Math.ceil(Math.min(e.target.innerHeight, maxViewportHeight) * ratio);
+		viewportSize = viewportWidth * viewportHeight;
+		instance.exports.setViewportDimensions(viewportWidth, viewportHeight, viewportSize);
+		gameCanvas.width = viewportWidth;
+		gameCanvas.height = viewportHeight;
+		gameCanvas.style.width = Math.min(e.target.innerWidth, maxViewportWidth) + "px";
+	    gameCanvas.style.height = Math.min(e.target.innerHeight, maxViewportHeight) + "px";
+		frame = new ImageData(viewportWidth, viewportHeight);
+	});
 
 	let start = document.timeline.currentTime;
 	function step(timestamp) {

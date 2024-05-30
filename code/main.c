@@ -121,14 +121,21 @@ function inline void setString(char *source, i32 index)
 	strings[index][i] = '\0';
 }
 
-function inline i32 getStringLen(i32 index)
+function inline i32 getStringLen(i32 stringIndex)
 {
 	i32 i = 0;
-	while (i < STRING_LEN && strings[index][i++] != '\0');
+	while (i < STRING_LEN && strings[stringIndex][i++] != '\0');
 	
 	return i-1;
 }
 
+function inline i32 getTextLen(char *text)
+{
+	i32 i = 0;
+	while (i < STRING_LEN && text[i++] != '\0');
+	
+	return i-1;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // DATA
@@ -141,7 +148,7 @@ typedef struct Character
 	i32 coolness;
 } Character;
 
-#define MAX_SIZE 8192
+#define MAX_SIZE 250000
 global Character data[MAX_SIZE];
 global i32 freeIndices[MAX_SIZE];
 global i32 numFreeIndices = MAX_SIZE;
@@ -444,6 +451,16 @@ function void renderString(i32 index, i32 x, i32 y, i32 scale, u32 color)
 	renderBytes((u8 *)strings[index], getStringLen(index), x, y, scale, color);
 }
 
+function i32 getTextSize(char *text, i32 scale)
+{
+	return getTextLen(text) * scale * 7;
+}
+
+function void renderText(char *text, i32 x, i32 y, i32 scale, u32 color)
+{
+	renderBytes((u8 *)text, getTextLen(text), x, y, scale, color);
+}
+
 function void u32ToStr(u32 number, char *string) {
     int i = 0;
 
@@ -547,12 +564,6 @@ void mouseUp()
 	mouseLeftClicked = 0;
 }
 
-void setPressedKey(i32 keyCode, byte shift)
-{
-	//keyEntered = keyCode;
-	keyMod = shift;
-}
-
 void* myMalloc(i32 n) {
 	u32 r = bump_pointer;
 	bump_pointer += n;
@@ -582,9 +593,10 @@ u32 calculateUsedMemory()
 	return numOfUsedBytes;
 }
 
-function byte UI_button(i32 id, i32 stringIndex, i32 x, i32 y)
+function byte UI_button(i32 id, char *label, i32 x, i32 y)
 {
-	i16 buttonWidth = 64;
+	i16 labelWidth = getTextSize(label, 2);
+	i16 buttonWidth = Max(labelWidth+18, 48);
 	i16 buttonHeight = 48;
 	byte wasPressed = 0;
 
@@ -592,11 +604,6 @@ function byte UI_button(i32 id, i32 stringIndex, i32 x, i32 y)
 	{
 		kbdItem = id;
 	}
-	if (kbdItem == id)
-	{
-		drawRect(x - 2, y - 2, buttonWidth + 9, buttonHeight + 9, 0xff1e69d2);
-	}
-
 	if (mouseInRect(x, y, buttonWidth, buttonHeight))
 	{
 		hotItem = id;
@@ -604,26 +611,28 @@ function byte UI_button(i32 id, i32 stringIndex, i32 x, i32 y)
 			activeItem = id;
 	}
 
-	drawRect(x + 4, y + 4, buttonWidth, buttonHeight, 0xff000000);
-	i16 offsetX = 0;
-	i16 offsetY = 0;
-	u32 buttonColor = 0xffdddddd;
+	u32 buttonColor = 0xffffff;
 	if (hotItem == id && activeItem == id)
 	{
-		offsetX = 2;
-		offsetY = 2;
-		buttonColor = 0xffffffff;
+		buttonColor = 0xffaaaaaa;
 	}
 	if (hotItem == id && activeItem != id)
 	{
-		buttonColor = 0xffffffff;
+		buttonColor = 0xffcccccc;
 	}
-	drawRect(x + offsetX, y + offsetY, buttonWidth, buttonHeight, buttonColor);
+	drawRect(x, y, buttonWidth, buttonHeight, buttonColor);
+	
+	i8 outlineWidth = (kbdItem == id) ? 4 : 2;
+	drawRect(x-outlineWidth/2, y-outlineWidth/2, outlineWidth, buttonHeight+outlineWidth/2, 0xff000000);
+	drawRect(x-outlineWidth/2, y-outlineWidth/2, buttonWidth+outlineWidth/2, outlineWidth, 0xff000000);
+	drawRect(x+buttonWidth-outlineWidth/2, y-outlineWidth/2, outlineWidth, buttonHeight+outlineWidth, 0xff000000);
+	drawRect(x-outlineWidth/2, y+buttonHeight-outlineWidth/2, buttonWidth+outlineWidth/2, outlineWidth, 0xff000000);
+	
 	// TODO: make button dimensions fit the text
 	// TODO: better interface for none text? different solution than current one?
-	if (stringIndex != -1)
+	if (label)
 	{
-		renderString(stringIndex, x + 8 + offsetX, y + 16 + offsetY, 2, 0xff000000);
+		renderText(label, x + (buttonWidth - labelWidth)/2, y+15, 2, 0xff000000);
 	}
 
 	if (kbdItem == id)
@@ -655,23 +664,27 @@ extern u32 getMemoryCapacity();
 // extern void getInputQueue(&input);
 
 global i32 playerId;
+global Character player = { .active = 1, .coolness = 9999, .x = 1200, .y = 800 };
 
 void init()
 {
 	decompressFontFromBytes();
 	clearFramebuffer(0xff0000ff);
 	initData();
-	Character player = { .active = 1, .coolness = MaxI32, .x = 200, .y = 600 };
-	Character enemy1 = { .active = 1, .coolness = -1, .x = 250, .y = 600 };
-	Character enemy2 = { .active = 1, .coolness = -99, .x = 200, .y = 650 };
-	playerId = insert(player);
-	insert(enemy1);
-	insert(enemy2);
+	//playerId = insert(player);
+	i32 posStuff = 0;
+	for (i32 i = 0; i < MAX_SIZE-1; i++)
+	{
+		insert((Character) { .active = 1, .x = (posStuff % viewportWidth), .y = 20 * (posStuff / viewportWidth) });
+		posStuff++;
+	}
 
 	setString("OK", 0);
 	setString("hex", 1);
 	setString("no.", 2);
 
+	char *someText = strings[2];
+	
 	setString("Kocham Olenke!!!", 10);
 	setString("(calym moim sercem <3<3<3)", 11);
 }
@@ -697,22 +710,29 @@ void doFrame(f32 dt)
 
 	// TODO: Take a look at handmade_game code, cause this aint gon work
 	// TODO: Perhaps do like some enum for all the keycodes?
-	u32 playerSpeed = 1;
+	f32 playerSpeed = 0.5f;
+	f32 enemySpeed = 0.2f;
 	if (frameInput.keyboard.arrowLeft.endedDown)
 	{
-		data[playerId].x -= playerSpeed * dt;
+		player.x -= playerSpeed * dt;
 	}
 	if (frameInput.keyboard.arrowUp.endedDown)
 	{
-		data[playerId].y -= playerSpeed * dt;
+		player.y -= playerSpeed * dt;
 	}
 	if (frameInput.keyboard.arrowRight.endedDown)
 	{
-		data[playerId].x += playerSpeed * dt;
+		player.x += playerSpeed * dt;
 	}
 	if (frameInput.keyboard.arrowDown.endedDown)
 	{
-		data[playerId].y += playerSpeed * dt;
+		player.y += playerSpeed * dt;
+	}
+
+	for (i32 i = MAX_SIZE-1; i >= 0; --i)
+	{
+		data[i].x += (player.x > data[i].x) ? enemySpeed*dt : -enemySpeed*dt;
+		data[i].y += (player.y > data[i].y) ? enemySpeed*dt : -enemySpeed*dt;
 	}
 
 	// imgui setup
@@ -730,42 +750,45 @@ void doFrame(f32 dt)
 				 characterWidth/2,
 				 0xff0000ff);
 	}
+	drawRect(player.x - characterWidth, 
+			 player.y - characterWidth, 
+			 characterWidth,
+			 characterWidth,
+			 0xff00ff00);
 
 	// UI
 	local u32 test = 0xff0000ff;
 	local byte e = 0;
-	UI_button(GEN_ID, 0, 50, 150);
-	if (UI_button(GEN_ID, 1, 50, 250))
+	UI_button(GEN_ID, "Ok", 50, 150);
+	if (UI_button(GEN_ID, "OMG!!! Ten guzik ZMIENIA KOLOR TEGO PROSTOKATA???? OMGG!!!?!", 150, 150))
 	{
 		e = e ? 0 : 1;
 		test = e ? 0xffffff00 : 0xff0000ff;
 	}
-	if (UI_button(GEN_ID, -1, 150, 250))
-	{
-		//callWindowAlert();
-		//
-	}
-	drawRect(150, 150, 64, 48, test);
+	UI_button(GEN_ID, "(btw: Tab i Shift+Tab dzialaja)", 50, 300);
+	drawRect(600, 300, 64, 48, test);
 
-	u8 bytes[95] = {
-		32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-		42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
-		52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
-		62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-		72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
-		82, 83, 84, 85, 86, 87, 88, 89, 90, 91,
-		92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
-		102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
-		112, 113, 114, 115, 116, 117, 118, 119, 120, 121,
-		122, 123, 124, 125, 126
-	};
-	renderBytes(bytes, 95, 500, 350, 2, 0xff000000);
-	
-	char *text = "siema eniu";
-	renderBytes((u8 *)text, 10, 2000, 370, 4, 0xff0000ff);
-
-	renderString(10, 450, 700, 8, 0xff0000ff);
-	renderString(11, 850, 1000, 8, 0xff4400aa);
+//	u8 bytes[95] = {
+//		32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+//		42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
+//		52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
+//		62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
+//		72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+//		82, 83, 84, 85, 86, 87, 88, 89, 90, 91,
+//		92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
+//		102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
+//		112, 113, 114, 115, 116, 117, 118, 119, 120, 121,
+//		122, 123, 124, 125, 126
+//	};
+//	renderBytes(bytes, 95, 500, 350, 2, 0xff000000);
+//	
+//	char *text = "siema eniu";
+//	renderBytes((u8 *)text, 10, 2000, 370, 4, 0xff0000ff);
+//
+//	renderString(10, 450, 700, 8, 0xff0000ff);
+//	renderString(11, 850, 1000, 8, 0xff4400aa);
+//
+//	renderText("WOW, Moge przekazywac stringi w taki wygodny sposob??? dziekuje!!!!!!!!", 200, 400, 5, 0xff12938d);
 
 
 	// DEBUGGING
@@ -820,11 +843,6 @@ void doFrame(f32 dt)
 	u32ToStr(100*calculateUsedMemory()/getMemoryCapacity(), strings[25]);
 	renderBytes((u8 *)"Taken(%):", 9, 1950, 12, 2, dbgFontColor);
 	renderString(25, 2080, 5, 4, dbgFontColor);
-
-	// drawRect(1844, 975, 40, 40, 0xffffff00);
-
-	// drawRect(1880, 1040, 40, 40, 0xffff00ff);
-
 
 	// imgui clear
 	UI_cleanup();
