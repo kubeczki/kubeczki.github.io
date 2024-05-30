@@ -859,6 +859,10 @@ void doFrame(f32 dt)
 	renderBytes((u8 *)"Taken(%):", 9, 1950, 12, 2, dbgFontColor);
 	renderString(25, 2080, 5, 4, dbgFontColor);
 
+	u32ToStr(MAX_SIZE+1, strings[26]);
+	renderText("No. entities:", 2200, 12, 2, dbgFontColor);
+	renderString(26, 2400, 5, 4, dbgFontColor);
+
 	// imgui clear
 	UI_cleanup();
 }
