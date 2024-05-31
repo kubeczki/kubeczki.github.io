@@ -8,7 +8,7 @@ REM Global compiler flags
 set CCFLAGS=		-Ofast -std=c99
 
 REM Global compiler flags for Wasm targeting
-set CLANGFLAGS=		--target=wasm32 -nostdlib
+set CLANGFLAGS=		--target=wasm32 -nostdlib -msimd128
 set CLANGFLAGS=		%CLANGFLAGS% -fvisibility=hidden -fno-builtin -fno-exceptions -fno-threadsafe-statics
 
 REM Flags for wasm-ld
@@ -21,7 +21,7 @@ REM Compile and link the source files
 REM Link the object files
 ::%WASMLD% %WASMLDFLAGS% -o ..\build\game.wasm ..\build\main.o
 
-%CLANG% -DDEBUG --target=wasm32 -O3 -flto -nostdlib %WASMLDFLAGS% -o ..\build\game.wasm main.c
+%CLANG% -DDEBUG -std=c99 --target=wasm32 -msimd128 -O3 -flto -nostdlib %WASMLDFLAGS% -o ..\build\game.wasm main.c
 REM can add -g flag above for debug info, but NOTE that it greatly increases the output file size
 
 REM Copy the loader files

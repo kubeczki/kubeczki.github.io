@@ -29,12 +29,6 @@ unsigned int bump_pointer = (unsigned int)&__heap_base;
 #define ClampTop(a,b) Min(a,b)
 #define ClampBottom(a,b) Max(a,b)
 
-#define global      static
-#define local       static
-#define function    static	// NOTE: In C, this means that 
-							// 1) static functions at file scope are only visible in that file 
-							// 2) static function declared inside another function is only visible in that function scope
-
 // types
 #include "stdint.h"
 
@@ -67,20 +61,20 @@ typedef char byte; // workaround for a conflict with a depndency
 #define small
 #endif
 
-global i8  MinI8  = (i8) 0x80;
-global i16 MinI16 = (i16)0x8000;
-global i32 MinI32 = (i32)0x80000000;
-global i64 MinI64 = (i64)0x8000000000000000LL;
+static i8  MinI8  = (i8) 0x80;
+static i16 MinI16 = (i16)0x8000;
+static i32 MinI32 = (i32)0x80000000;
+static i64 MinI64 = (i64)0x8000000000000000LL;
 
-global i8  MaxI8  = (i8) 0x7f;
-global i16 MaxI16 = (i16)0x7fff;
-global i32 MaxI32 = (i32)0x7fffffff;
-global i64 MaxI64 = (i64)0x7fffffffffffffffLL;
+static i8  MaxI8  = (i8) 0x7f;
+static i16 MaxI16 = (i16)0x7fff;
+static i32 MaxI32 = (i32)0x7fffffff;
+static i64 MaxI64 = (i64)0x7fffffffffffffffLL;
 
-global u8  MaxU8  = 0xff;
-global u16 MaxU16 = 0xffff;
-global u32 MaxU32 = 0xffffffff;
-global u64 MaxU64 = 0xffffffffffffffffULL;
+static u8  MaxU8  = 0xff;
+static u16 MaxU16 = 0xffff;
+static u32 MaxU32 = 0xffffffff;
+static u64 MaxU64 = 0xffffffffffffffffULL;
 
 #define Kilobytes(Value) ((Value)*1024LL)
 #define Megabytes(Value) (Kilobytes(Value)*1024LL)
@@ -97,6 +91,8 @@ global u64 MaxU64 = 0xffffffffffffffffULL;
 #define Member(T,m) (((T*)0)->m)
 #define OffsetOfMember(T,m) IntFromPtr(&Member(T,m))
 
+#include "wasm_simd128.h"
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // APPLICATION LOGIC
@@ -107,9 +103,9 @@ global u64 MaxU64 = 0xffffffffffffffffULL;
 ////////////////////////////////////////////////////////////////////////////////
 #define NUM_STRINGS	64
 #define STRING_LEN	1024
-global char strings[NUM_STRINGS][STRING_LEN]; // TODO: play around // TODO: 'or even swap the two dimensions to achieve SOA SIMD
+static char strings[NUM_STRINGS][STRING_LEN]; // TODO: play around // TODO: 'or even swap the two dimensions to achieve SOA SIMD
 
-function inline void setString(char *source, i32 index)
+static inline void setString(char *source, i32 index)
 {
 	Assert(source != NULL);
 	char *srcChar = source;
@@ -121,7 +117,7 @@ function inline void setString(char *source, i32 index)
 	strings[index][i] = '\0';
 }
 
-function inline i32 getStringLen(i32 stringIndex)
+static inline i32 getStringLen(i32 stringIndex)
 {
 	i32 i = 0;
 	while (i < STRING_LEN && strings[stringIndex][i++] != '\0');
@@ -129,7 +125,7 @@ function inline i32 getStringLen(i32 stringIndex)
 	return i-1;
 }
 
-function inline i32 getTextLen(char *text)
+static inline i32 getTextLen(char *text)
 {
 	i32 i = 0;
 	while (i < STRING_LEN && text[i++] != '\0');
@@ -149,11 +145,11 @@ typedef struct Character
 } Character;
 
 #define MAX_SIZE 250000
-global Character data[MAX_SIZE];
-global i32 freeIndices[MAX_SIZE];
-global i32 numFreeIndices = MAX_SIZE;
+static Character data[MAX_SIZE];
+static i32 freeIndices[MAX_SIZE];
+static i32 numFreeIndices = MAX_SIZE;
 
-function inline void initData()
+static inline void initData()
 {
 	i32 indexNumber = 0;
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
@@ -162,7 +158,7 @@ function inline void initData()
 	}
 }
 
-function inline i32 insert(Character input)
+static inline i32 insert(Character input)
 {
 	Assert(numFreeIndices > 0); // TODO: Wonder if I even need it XD
 	i32 index = freeIndices[--numFreeIndices];
@@ -170,7 +166,7 @@ function inline i32 insert(Character input)
 	return index;
 }
 
-function inline void remove(i32 index)
+static inline void remove(i32 index)
 {
 	data[index].active = 0; // NOTE: see comment on this (bitflags, conditional moves, masked SIMD instructions)
 	freeIndices[numFreeIndices++] = index;
@@ -190,7 +186,7 @@ typedef struct ButtonState
 
 typedef struct MouseInput
 {
-	// x and y handled as seperate globals
+	// x and y handled as seperate statics
 	union
 	{
 		ButtonState buttons[3];
@@ -229,7 +225,7 @@ typedef struct Input
 	MouseInput mouse;
 } Input;
 
-global Input frameInput;
+static Input frameInput;
 
 ////////////////////////////////////////////////////////////////////////////////
 // FRAMEBUFFER AND UI
@@ -237,28 +233,28 @@ global Input frameInput;
 #define MAX_VIEWPORT_WIDTH 3840
 #define MAX_VIEWPORT_HEIGHT 2160
 
-global u32 framebuffer[MAX_VIEWPORT_WIDTH * MAX_VIEWPORT_HEIGHT];
+static u32 framebuffer[MAX_VIEWPORT_WIDTH * MAX_VIEWPORT_HEIGHT];
 
-global i32 viewportWidth = MAX_VIEWPORT_WIDTH;
-global i32 viewportHeight = MAX_VIEWPORT_HEIGHT;
-global i32 viewportSize = MAX_VIEWPORT_WIDTH * MAX_VIEWPORT_HEIGHT;
+static i32 viewportWidth = MAX_VIEWPORT_WIDTH;
+static i32 viewportHeight = MAX_VIEWPORT_HEIGHT;
+static i32 viewportSize = MAX_VIEWPORT_WIDTH * MAX_VIEWPORT_HEIGHT;
 
-global i32 mouseX;
-global i32 mouseY;
-global byte mouseLeftClicked;
+static i32 mouseX;
+static i32 mouseY;
+static byte mouseLeftClicked;
 
-global i32 hotItem;
-global i32 activeItem;
+static i32 hotItem;
+static i32 activeItem;
 
-global i32 kbdItem;
-global i32 switchFocus;
-global i32 keyboardSelect;
-global i32 keyMod;
-global i32 lastItem;
+static i32 kbdItem;
+static i32 switchFocus;
+static i32 keyboardSelect;
+static i32 keyMod;
+static i32 lastItem;
 
 #define GEN_ID (__LINE__)
 
-global b32 isPaused;
+static b32 isPaused;
 
 void clearFramebuffer(u32 color)
 {
@@ -306,7 +302,7 @@ void putPixel(i32 x, i32 y, u32 color)
 }
 
 #define COMPRESSED_FONT_LEN 622
-global u8 COMPRESSED_FONT[COMPRESSED_FONT_LEN] = {
+static u8 COMPRESSED_FONT[COMPRESSED_FONT_LEN] = {
 	0x00, 0x11, 0x20, 0xa1, 0x41, 0x0c, 0x0e, 0x08, 0x08, 0x40, 0x00, 0x05, 0x38, 0x20, 0x00, 0x01,
 	0x20, 0xa1, 0x43, 0xcc, 0x92, 0x08, 0x10, 0x21, 0x50, 0x80, 0x00, 0x02, 0x02, 0x44, 0x60, 0x00,
 	0x01, 0x20, 0x03, 0xe5, 0x01, 0x14, 0x00, 0x01, 0x20, 0x10, 0xe0, 0x80, 0x00, 0x02, 0x04, 0x4c,
@@ -359,9 +355,9 @@ global u8 COMPRESSED_FONT[COMPRESSED_FONT_LEN] = {
 
 #define BITS_IN_BYTE 8
 
-global u8 FONT[FONT_IMAGE_WIDTH * FONT_IMAGE_HEIGHT];
+static u8 FONT[FONT_IMAGE_WIDTH * FONT_IMAGE_HEIGHT];
 
-function void decompressFontFromBytes()
+static void decompressFontFromBytes()
 {
 	i32 n = COMPRESSED_FONT_LEN;
 	i32 i = 0;
@@ -404,7 +400,7 @@ function void decompressFontFromBytes()
 }
 
 // TODO: make faster pweamz :) ^_^
-function void renderAscii(u8 code, i32 x, i32 y, i32 scale, u32 color)
+static void renderAscii(u8 code, i32 x, i32 y, i32 scale, u32 color)
 {
 	if (code >= 32 && code <= 126)
 	{
@@ -440,7 +436,7 @@ function void renderAscii(u8 code, i32 x, i32 y, i32 scale, u32 color)
 	}
 }
 
-function void renderBytes(u8 *bytes, i32 len, i32 x, i32 y, i32 scale, u32 color)
+static void renderBytes(u8 *bytes, i32 len, i32 x, i32 y, i32 scale, u32 color)
 {
 	for (i32 i = 0; i < len; i++)
 	{
@@ -448,22 +444,22 @@ function void renderBytes(u8 *bytes, i32 len, i32 x, i32 y, i32 scale, u32 color
 	}
 }
 
-function void renderString(i32 index, i32 x, i32 y, i32 scale, u32 color)
+static void renderString(i32 index, i32 x, i32 y, i32 scale, u32 color)
 {
 	renderBytes((u8 *)strings[index], getStringLen(index), x, y, scale, color);
 }
 
-function i32 getTextSize(char *text, i32 scale)
+static i32 getTextSize(char *text, i32 scale)
 {
 	return getTextLen(text) * scale * 7;
 }
 
-function void renderText(char *text, i32 x, i32 y, i32 scale, u32 color)
+static void renderText(char *text, i32 x, i32 y, i32 scale, u32 color)
 {
 	renderBytes((u8 *)text, getTextLen(text), x, y, scale, color);
 }
 
-function void u32ToStr(u32 number, char *string) {
+static void u32ToStr(u32 number, char *string) {
     int i = 0;
 
     if (number == 0) {
@@ -486,14 +482,14 @@ function void u32ToStr(u32 number, char *string) {
     }
 }
 
-function void UI_init()
+static void UI_init()
 {
 	hotItem = 0;
 	switchFocus = frameInput.keyboard.tab.justPressed;
 	keyboardSelect = frameInput.keyboard.enter.justPressed;
 }
 
-function void UI_cleanup()
+static void UI_cleanup()
 {
 	if (mouseLeftClicked == 0)
 	{
@@ -509,7 +505,7 @@ function void UI_cleanup()
 	// NOTE: I don't think we have to zero keyMod, cause it only appears with keyEntered
 }
 
-function byte mouseInRect(i32 x, i32 y, i32 w, i32 h)
+static byte mouseInRect(i32 x, i32 y, i32 w, i32 h)
 {
 	byte hit = 1;
 	hit = (mouseX < x) ? 0 : hit;
@@ -600,7 +596,7 @@ u32 calculateUsedMemory()
 	return numOfUsedBytes;
 }
 
-function byte UI_button(i32 id, char *label, i32 x, i32 y)
+static byte UI_button(i32 id, char *label, i32 x, i32 y)
 {
 	i16 labelWidth = getTextSize(label, 2);
 	i16 buttonWidth = Max(labelWidth+18, 48);
@@ -671,11 +667,17 @@ extern b32 getIsApplicationFocused();
 // struct {} input;
 // extern void getInputQueue(&input);
 
-global i32 playerId;
-global Character player = { .active = 1, .coolness = 9999, .x = 1200, .y = 800 };
+static i32 playerId;
+static Character player = { .active = 1, .coolness = 9999, .x = 1200, .y = 800 };
 
 void init()
 {
+	v128_t a = wasm_i32x4_make(1, 2, 3, 4);
+    v128_t b = wasm_i32x4_make(5, 6, 7, 8);
+    v128_t result = wasm_i32x4_add(a, b);
+	i32 firstNum = wasm_i32x4_extract_lane(result, 1);
+	u32ToStr((u32)firstNum, strings[50]);
+
 	decompressFontFromBytes();
 	clearFramebuffer(0xff0000ff);
 	initData();
@@ -697,8 +699,8 @@ void init()
 	setString("(calym moim sercem <3<3<3)", 11);
 }
 
-global u32 FPSBuffer[1024];
-global i32 dtBuffer[1024];
+static u32 FPSBuffer[1024];
+static i32 dtBuffer[1024];
 
 u32 getMaxViewportWidth()
 {
@@ -708,6 +710,11 @@ u32 getMaxViewportWidth()
 u32 getMaxViewportHeight()
 {
 	return MAX_VIEWPORT_HEIGHT;
+}
+
+i32 absI32(i32 num)
+{
+	return (num < 0) ? -num : num;
 }
 
 void doFrame(f32 dt)
@@ -746,8 +753,11 @@ void doFrame(f32 dt)
 
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
 	{
-		data[i].x += (player.x > data[i].x) ? enemySpeed*dt : -enemySpeed*dt;
-		data[i].y += (player.y > data[i].y) ? enemySpeed*dt : -enemySpeed*dt;
+		if ((absI32(data[i].x - player.x) + absI32(data[i].y - player.y)) < 100)
+		{
+			data[i].x += (player.x > data[i].x) ? enemySpeed*dt : -enemySpeed*dt;
+			data[i].y += (player.y > data[i].y) ? enemySpeed*dt : -enemySpeed*dt;
+		}
 	}
 
 	// imgui setup
@@ -772,8 +782,8 @@ void doFrame(f32 dt)
 			 0xff00ff00);
 
 	// UI
-	local u32 test = 0xff0000ff;
-	local byte e = 0;
+	static u32 test = 0xff0000ff;
+	static byte e = 0;
 	UI_button(GEN_ID, "Ok", 50, 150);
 	if (UI_button(GEN_ID, "OMG!!! Ten guzik ZMIENIA KOLOR TEGO PROSTOKATA???? OMGG!!!?!", 150, 150))
 	{
@@ -782,29 +792,6 @@ void doFrame(f32 dt)
 	}
 	UI_button(GEN_ID, "(btw: Tab i Shift+Tab dzialaja)", 50, 300);
 	drawRect(600, 300, 64, 48, test);
-
-//	u8 bytes[95] = {
-//		32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
-//		42, 43, 44, 45, 46, 47, 48, 49, 50, 51,
-//		52, 53, 54, 55, 56, 57, 58, 59, 60, 61,
-//		62, 63, 64, 65, 66, 67, 68, 69, 70, 71,
-//		72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
-//		82, 83, 84, 85, 86, 87, 88, 89, 90, 91,
-//		92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
-//		102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
-//		112, 113, 114, 115, 116, 117, 118, 119, 120, 121,
-//		122, 123, 124, 125, 126
-//	};
-//	renderBytes(bytes, 95, 500, 350, 2, 0xff000000);
-//	
-//	char *text = "siema eniu";
-//	renderBytes((u8 *)text, 10, 2000, 370, 4, 0xff0000ff);
-//
-//	renderString(10, 450, 700, 8, 0xff0000ff);
-//	renderString(11, 850, 1000, 8, 0xff4400aa);
-//
-//	renderText("WOW, Moge przekazywac stringi w taki wygodny sposob??? dziekuje!!!!!!!!", 200, 400, 5, 0xff12938d);
-
 
 	// DEBUGGING
 	drawRect(0, 0, viewportWidth, 120, 0xff0a3f3f);
@@ -817,6 +804,9 @@ void doFrame(f32 dt)
 	u32ToStr(viewportHeight, strings[21]);
 	renderBytes((u8 *)"height:", 7, 20, 80, 2, dbgFontColor);
 	renderString(21, 130, 70, 4, dbgFontColor);
+
+	renderText("SIMD TEST:", 50, 400, 2, dbgFontColor);
+	renderString(50, 200, 400, 4, dbgFontColor);
 
 	i32 graphBaseline = 65;
 	u32 graphRectColor = 0xffff0000;
@@ -842,7 +832,13 @@ void doFrame(f32 dt)
 	drawRect(400, graphBaseline, 1024, 1, graphRectColor);
 	drawRect(1424, graphBaseline-60, 1, 60, graphRectColor);
 	
-	u32ToStr((FPSBuffer[0]+FPSBuffer[1]+FPSBuffer[2]+FPSBuffer[3])/4, strings[22]);
+	u32 FPSNumToDisplay = 0;
+	for (i32 i = 0; i < 100; i++)
+	{
+		FPSNumToDisplay += FPSBuffer[i];
+	}
+	FPSNumToDisplay /= 100;
+	u32ToStr(FPSNumToDisplay, strings[22]);
 	renderBytes((u8 *)"FPS:", 4, 400, 70, 2, dbgFontColor);
 	renderString(22, 460, 70, 4, dbgFontColor);
 
