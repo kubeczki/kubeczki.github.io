@@ -144,7 +144,7 @@ typedef struct Character
 	i32 coolness;
 } Character;
 
-#define MAX_SIZE 250000
+#define MAX_SIZE 200000
 static Character data[MAX_SIZE];
 static i32 freeIndices[MAX_SIZE];
 static i32 numFreeIndices = MAX_SIZE;
@@ -683,10 +683,14 @@ void init()
 	initData();
 	//playerId = insert(player);
 	i32 posStuff = 0;
-	for (i32 i = 0; i < MAX_SIZE-1; i++)
+	f32 spawnStep = (f32)(viewportSize / MAX_SIZE);
+	i32 spawnX = 0;
+	i32 spawnY = 0;
+	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
-		insert((Character) { .active = 1, .x = (posStuff % viewportWidth), .y = 20 * (posStuff / viewportWidth) });
-		posStuff++;
+		spawnY = (i32)(spawnStep * (spawnX / viewportWidth));
+		insert((Character) { .active = 1, .x = (i32)(spawnX % viewportWidth), .y = (i32)(spawnY % viewportHeight) });
+		spawnX += spawnStep;
 	}
 
 	setString("OK", 0);
@@ -733,7 +737,7 @@ void doFrame(f32 dt)
 	// TODO: Take a look at handmade_game code, cause this aint gon work
 	// TODO: Perhaps do like some enum for all the keycodes?
 	f32 playerSpeed = 0.5f;
-	f32 enemySpeed = 0.2f;
+	f32 enemySpeed = 0.1f;
 	if (frameInput.keyboard.arrowLeft.endedDown)
 	{
 		player.x -= playerSpeed * dt;
@@ -751,12 +755,15 @@ void doFrame(f32 dt)
 		player.y += playerSpeed * dt;
 	}
 
+	i32 pullRadius = 100000;
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
 	{
-		if ((absI32(data[i].x - player.x) + absI32(data[i].y - player.y)) < 100)
+		i32 dist = ((data[i].x - player.x) * (data[i].x - player.x) + (data[i].y - player.y) * (data[i].y - player.y));
+		if (dist < pullRadius)
 		{
-			data[i].x += (player.x > data[i].x) ? enemySpeed*dt : -enemySpeed*dt;
-			data[i].y += (player.y > data[i].y) ? enemySpeed*dt : -enemySpeed*dt;
+			f32 speed = enemySpeed * (1 - ((f32)dist / pullRadius)*((f32)dist / pullRadius));
+			data[i].x += (player.x > data[i].x) ? speed*dt : -speed*dt;
+			data[i].y += (player.y > data[i].y) ? speed*dt : -speed*dt;
 		}
 	}
 
@@ -790,6 +797,7 @@ void doFrame(f32 dt)
 		e = e ? 0 : 1;
 		test = e ? 0xffffff00 : 0xff0000ff;
 	}
+	UI_button(GEN_ID, NULL, 1100, 150);
 	UI_button(GEN_ID, "(btw: Tab i Shift+Tab dzialaja)", 50, 300);
 	drawRect(600, 300, 64, 48, test);
 
@@ -805,8 +813,8 @@ void doFrame(f32 dt)
 	renderBytes((u8 *)"height:", 7, 20, 80, 2, dbgFontColor);
 	renderString(21, 130, 70, 4, dbgFontColor);
 
-	renderText("SIMD TEST:", 50, 400, 2, dbgFontColor);
-	renderString(50, 200, 400, 4, dbgFontColor);
+	renderText("SIMD TEST:", 50, 400, 2, 0xff000000);
+	renderString(50, 200, 400, 4, 0xff000000);
 
 	i32 graphBaseline = 65;
 	u32 graphRectColor = 0xffff0000;
