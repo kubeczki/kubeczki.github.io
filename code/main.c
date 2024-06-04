@@ -777,7 +777,7 @@ void doFrame(f32 dt)
 				 data[i].y - characterWidth/2, 
 				 characterWidth/2, 
 				 characterWidth/2,
-				 0xff000000 + (i % 0x00ffffff));
+				 0xff000000 + (i % 0x000088ff));
 	}
 	drawRect(player.x - characterWidth, 
 			 player.y - characterWidth, 
