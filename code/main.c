@@ -755,16 +755,13 @@ void doFrame(f32 dt)
 		player.y += playerSpeed * dt;
 	}
 
-	i32 pullRadius = 100000;
+	i32 pullRadius = 1000000;
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
 	{
 		i32 dist = ((data[i].x - player.x) * (data[i].x - player.x) + (data[i].y - player.y) * (data[i].y - player.y));
-		if (dist < pullRadius)
-		{
-			f32 speed = enemySpeed * (1 - ((f32)dist / pullRadius)*((f32)dist / pullRadius));
-			data[i].x += (player.x > data[i].x) ? speed*dt : -speed*dt;
-			data[i].y += (player.y > data[i].y) ? speed*dt : -speed*dt;
-		}
+		f32 speed = enemySpeed * (1 - ((f32)dist / pullRadius)*((f32)dist / pullRadius));
+		//data[i].x += speed*dt * (player.x > data[i].x);
+		data[i].y += speed*dt * (player.y > data[i].y);
 	}
 
 	// imgui setup
@@ -780,7 +777,7 @@ void doFrame(f32 dt)
 				 data[i].y - characterWidth/2, 
 				 characterWidth/2, 
 				 characterWidth/2,
-				 0xff0000ff);
+				 0xff000000 + (i % 0x00ffffff));
 	}
 	drawRect(player.x - characterWidth, 
 			 player.y - characterWidth, 
@@ -799,6 +796,7 @@ void doFrame(f32 dt)
 	}
 	UI_button(GEN_ID, NULL, 1100, 150);
 	UI_button(GEN_ID, "(btw: Tab i Shift+Tab dzialaja)", 50, 300);
+	drawRect(595, 295, 74, 58, 0xff000000);
 	drawRect(600, 300, 64, 48, test);
 
 	// DEBUGGING
