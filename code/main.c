@@ -144,7 +144,7 @@ typedef struct Character
 	i32 coolness;
 } Character;
 
-#define MAX_SIZE 200000
+#define MAX_SIZE 75000
 static Character data[MAX_SIZE];
 static i32 freeIndices[MAX_SIZE];
 static i32 numFreeIndices = MAX_SIZE;
@@ -755,6 +755,7 @@ void doFrame(f32 dt)
 		player.y += playerSpeed * dt;
 	}
 
+	i32 numActiveEntities = 0;
 	i32 pullRadius = 1000000;
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
 	{
@@ -762,6 +763,8 @@ void doFrame(f32 dt)
 		f32 speed = enemySpeed * (1 - ((f32)dist / pullRadius)*((f32)dist / pullRadius));
 		//data[i].x += speed*dt * (player.x > data[i].x);
 		data[i].y += speed*dt * (player.y > data[i].y);
+		data[i].active = (data[i].x < viewportWidth) && (data[i].x > 0) && (data[i].y < viewportHeight) && (data[i].y > 0);
+		numActiveEntities += data[i].active;
 	}
 
 	// imgui setup
@@ -861,9 +864,11 @@ void doFrame(f32 dt)
 	renderBytes((u8 *)"Taken(%):", 9, 1950, 12, 2, dbgFontColor);
 	renderString(25, 2080, 5, 4, dbgFontColor);
 
-	u32ToStr(MAX_SIZE+1, strings[26]);
-	renderText("No. entities:", 2200, 12, 2, dbgFontColor);
-	renderString(26, 2400, 5, 4, dbgFontColor);
+	u32ToStr(numActiveEntities, strings[26]);
+	u32ToStr(MAX_SIZE+1, strings[27]);
+	renderText("No. entities (active/all):", 2200, 12, 2, dbgFontColor);
+	renderString(26, 2600, 5, 4, 0xffffffff);
+	renderString(27, 2800, 5, 4, dbgFontColor);
 
 	// imgui clear
 	UI_cleanup();
