@@ -144,7 +144,7 @@ typedef struct Character
 	i32 coolness;
 } Character;
 
-#define MAX_SIZE 200000
+#define MAX_SIZE 130000
 static Character data[MAX_SIZE];
 static i32 freeIndices[MAX_SIZE];
 static i32 numFreeIndices = MAX_SIZE;
@@ -663,12 +663,12 @@ extern void callWindowAlert();
 extern u32 getMemoryCapacity();
 extern b32 getIsApplicationFocused();
 
-static i32 mapWidth = 6000;
-static i32 mapHeight = 3000;
+static i32 mapWidth = 30000;
+static i32 mapHeight = 15000;
 
 static i32 cameraX = 0;
 static i32 cameraY = 0;
-static f32 pixelsPerUnit = 0.25;
+static f32 pixelsPerUnit = 0.125;
 
 static i32 mapToScreenX(i32 x)
 {
@@ -696,7 +696,7 @@ void init()
 	initData();
 	//playerId = insert(player);
 	i32 posStuff = 0;
-	f32 spawnStep = (f32)(viewportSize / MAX_SIZE);
+	f32 spawnStep = (f32)((mapWidth * mapHeight) / MAX_SIZE);
 	i32 spawnX = 0;
 	i32 spawnY = 0;
 	for (i32 i = 0; i < MAX_SIZE; i++)
@@ -717,7 +717,7 @@ void init()
 }
 
 static u32 FPSBuffer[1024];
-static i32 dtBuffer[1024];
+static f32 dtBuffer[1024];
 
 u32 getMaxViewportWidth()
 {
@@ -745,7 +745,7 @@ void doFrame(f32 dt)
 	}
 
 	// TODO: Perhaps do like some enum for all the keycodes?
-	f32 playerSpeed = 1.0f;
+	f32 playerSpeed = 3.0f;
 	f32 enemySpeed = 0.1f;
 	if (frameInput.keyboard.arrowLeft.endedDown)
 	{
@@ -787,7 +787,7 @@ void doFrame(f32 dt)
 	drawRect(mapToScreenX(0), mapToScreenY(0), mapWidth*pixelsPerUnit, mapHeight*pixelsPerUnit, 0xffab78cc);
 
 	// RENDERING
-	i32 characterWidth = 24;
+	i32 characterWidth = 64;
 	i32 screenCharacterWidth = characterWidth * pixelsPerUnit;
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
 	{
@@ -862,11 +862,11 @@ void doFrame(f32 dt)
 	drawRect(graphStartX, graphBaseline-FPSBuffer[0], 1, FPSBuffer[0], 0xff00ff00);
 	
 	drawRect(graphStartX, graphBaseline-30, 1024, 1, graphRectColor);
-	dtBuffer[0] = (i32)dt;
+	dtBuffer[0] = dt;
 	for (i32 i = 1024; i > 0; i--)
 	{
 		dtBuffer[i] = dtBuffer[i-1];
-		if(dtBuffer[i]) drawRect(graphStartX + i, graphBaseline-30-(16-dtBuffer[i]), 1, 2, 0xffff00ff);
+		if(dtBuffer[i]) drawRect(graphStartX + i, graphBaseline-30-(i32)(2*(16.0f-dtBuffer[i])), 1, 2, 0xffff00ff);
 	}
 
 	drawRect(graphStartX, graphBaseline-60, 1, 60, graphRectColor);
