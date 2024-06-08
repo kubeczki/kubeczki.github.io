@@ -144,7 +144,7 @@ typedef struct Character
 	i32 coolness;
 } Character;
 
-#define MAX_SIZE 75000
+#define MAX_SIZE 200000
 static Character data[MAX_SIZE];
 static i32 freeIndices[MAX_SIZE];
 static i32 numFreeIndices = MAX_SIZE;
@@ -663,9 +663,22 @@ extern void callWindowAlert();
 extern u32 getMemoryCapacity();
 extern b32 getIsApplicationFocused();
 
-// TODO: 
-// struct {} input;
-// extern void getInputQueue(&input);
+static i32 mapWidth = 6000;
+static i32 mapHeight = 3000;
+
+static i32 cameraX = 0;
+static i32 cameraY = 0;
+static f32 pixelsPerUnit = 0.25;
+
+static i32 mapToScreenX(i32 x)
+{
+	return (x - cameraX) * pixelsPerUnit;
+}
+
+static i32 mapToScreenY(i32 y)
+{
+	return (y - cameraY) * pixelsPerUnit;
+}
 
 static i32 playerId;
 static Character player = { .active = 1, .coolness = 9999, .x = 1200, .y = 800 };
@@ -688,8 +701,8 @@ void init()
 	i32 spawnY = 0;
 	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
-		spawnY = (i32)(spawnStep * (spawnX / viewportWidth));
-		insert((Character) { .active = 1, .x = (i32)(spawnX % viewportWidth), .y = (i32)(spawnY % viewportHeight) });
+		spawnY = (i32)(spawnStep * (spawnX / mapWidth));
+		insert((Character) { .active = 1, .x = (i32)(spawnX % mapWidth), .y = (i32)(spawnY % mapHeight) });
 		spawnX += spawnStep;
 	}
 
@@ -730,13 +743,9 @@ void doFrame(f32 dt)
 		renderText("GAME PAUSED. PRESS SPACE TO RESUME", 400, 600, 8, 0xff000000);
 		return;
 	}
-	// gather and process input
-	// TODO: ok, so chatGPT came up with an idea, callbacks are asynchronous, but I could just make it
-	// so that on callback, I push the keycode and keymods to an event queue!
 
-	// TODO: Take a look at handmade_game code, cause this aint gon work
 	// TODO: Perhaps do like some enum for all the keycodes?
-	f32 playerSpeed = 0.5f;
+	f32 playerSpeed = 1.0f;
 	f32 enemySpeed = 0.1f;
 	if (frameInput.keyboard.arrowLeft.endedDown)
 	{
@@ -755,15 +764,18 @@ void doFrame(f32 dt)
 		player.y += playerSpeed * dt;
 	}
 
+	cameraX = player.x - (viewportWidth / pixelsPerUnit) / 2;
+	cameraY = player.y - (viewportHeight / pixelsPerUnit) / 2;
+
 	i32 numActiveEntities = 0;
-	i32 pullRadius = 1000000;
+	i32 pullRadius = 2000000;
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
 	{
 		i32 dist = ((data[i].x - player.x) * (data[i].x - player.x) + (data[i].y - player.y) * (data[i].y - player.y));
 		f32 speed = enemySpeed * (1 - ((f32)dist / pullRadius)*((f32)dist / pullRadius));
 		//data[i].x += speed*dt * (player.x > data[i].x);
 		data[i].y += speed*dt * (player.y > data[i].y);
-		data[i].active = (data[i].x < viewportWidth) && (data[i].x > 0) && (data[i].y < viewportHeight) && (data[i].y > 0);
+		data[i].active = (data[i].x < mapWidth) && (data[i].x > 0) && (data[i].y < mapHeight) && (data[i].y > 0);
 		numActiveEntities += data[i].active;
 	}
 
@@ -771,21 +783,26 @@ void doFrame(f32 dt)
 	UI_init();
 
 	// clear framebuffer
-	clearFramebuffer(0xffdcf5f5); // AABBBGGRR? is this some endian stuff?
+	clearFramebuffer(0xff8956aa); // AABBBGGRR? is this some endian stuff?	
+	drawRect(mapToScreenX(0), mapToScreenY(0), mapWidth*pixelsPerUnit, mapHeight*pixelsPerUnit, 0xffab78cc);
 
-	i32 characterWidth = 12;
+	// RENDERING
+	i32 characterWidth = 24;
+	i32 screenCharacterWidth = characterWidth * pixelsPerUnit;
 	for (i32 i = MAX_SIZE-1; i >= 0; --i)
 	{
-		drawRect(data[i].x - characterWidth/2, 
-				 data[i].y - characterWidth/2, 
-				 characterWidth/2, 
-				 characterWidth/2,
+		i32 screenX = mapToScreenX(data[i].x);
+		i32 screenY = mapToScreenY(data[i].y);
+		drawRect(screenX - screenCharacterWidth/2, 
+				 screenY - screenCharacterWidth/2, 
+				 screenCharacterWidth/2, 
+				 screenCharacterWidth/2,
 				 0xff000000 + (i % 0x000088ff));
 	}
-	drawRect(player.x - characterWidth, 
-			 player.y - characterWidth, 
-			 characterWidth,
-			 characterWidth,
+	drawRect(mapToScreenX(player.x) - screenCharacterWidth, 
+			 mapToScreenY(player.y) - screenCharacterWidth, 
+			 screenCharacterWidth,
+			 screenCharacterWidth,
 			 0xff00ff00);
 
 	// UI
@@ -806,40 +823,56 @@ void doFrame(f32 dt)
 	drawRect(0, 0, viewportWidth, 120, 0xff0a3f3f);
 
 	u32 dbgFontColor = 0xffcccccc;
+
 	u32ToStr(viewportWidth, strings[20]);
-	renderBytes((u8 *)"width:", 6, 20, 20, 2, dbgFontColor);
-	renderString(20, 130, 10, 4, dbgFontColor);
+	renderText("vwprt_width:", 1050, 10, 2, dbgFontColor);
+	renderString(20, 1240, 5, 4, dbgFontColor);
 
 	u32ToStr(viewportHeight, strings[21]);
-	renderBytes((u8 *)"height:", 7, 20, 80, 2, dbgFontColor);
-	renderString(21, 130, 70, 4, dbgFontColor);
+	renderText("vwprt_height:", 1050, 50, 2, dbgFontColor);
+	renderString(21, 1240, 45, 4, dbgFontColor);
 
-	renderText("SIMD TEST:", 50, 400, 2, 0xff000000);
-	renderString(50, 200, 400, 4, 0xff000000);
+	u32ToStr(mapWidth, strings[22]);
+	renderText("map_width:", 1400, 10, 2, dbgFontColor);
+	renderString(22, 1550, 5, 4, dbgFontColor);
 
+	u32ToStr(mapHeight, strings[23]);
+	renderText("map_height:", 1400, 50, 2, dbgFontColor);
+	renderString(23, 1550, 45, 4, dbgFontColor);
+
+	renderText("SIMD TEST:", 50, 400, 2, dbgFontColor);
+	renderString(50, 200, 400, 4, dbgFontColor);
+
+	u32ToStr(player.x, strings[30]);
+	u32ToStr(player.y, strings[31]);
+	renderText("PlayerCoords: (     ,     )", 50, 450, 2, dbgFontColor);
+	renderString(30, 270, 450, 2, dbgFontColor);
+	renderString(31, 360, 450, 2, dbgFontColor);
+
+	i32 graphStartX = 10;
 	i32 graphBaseline = 65;
 	u32 graphRectColor = 0xffff0000;
-	drawRect(400, graphBaseline-60, 1024, 60, 0x88990000);
+	drawRect(graphStartX, graphBaseline-60, 1024, 60, 0x88990000);
 	for (i32 i = 1024; i > 0; i--)
 	{
 		FPSBuffer[i] = FPSBuffer[i-1];
-		drawRect(400 + i, graphBaseline-FPSBuffer[i], 1, FPSBuffer[i], 0xff00ff00);
+		drawRect(graphStartX + i, graphBaseline-FPSBuffer[i], 1, FPSBuffer[i], 0xff00ff00);
 	}
 	FPSBuffer[0] = Clamp((u32)(1000 / dt), 0, 60);
-	drawRect(400, graphBaseline-FPSBuffer[0], 1, FPSBuffer[0], 0xff00ff00);
+	drawRect(graphStartX, graphBaseline-FPSBuffer[0], 1, FPSBuffer[0], 0xff00ff00);
 	
-	drawRect(400, graphBaseline-30, 1024, 1, graphRectColor);
+	drawRect(graphStartX, graphBaseline-30, 1024, 1, graphRectColor);
 	dtBuffer[0] = (i32)dt;
 	for (i32 i = 1024; i > 0; i--)
 	{
 		dtBuffer[i] = dtBuffer[i-1];
-		if(dtBuffer[i]) drawRect(400 + i, graphBaseline-30-(16-dtBuffer[i]), 1, 2, 0xffff00ff);
+		if(dtBuffer[i]) drawRect(graphStartX + i, graphBaseline-30-(16-dtBuffer[i]), 1, 2, 0xffff00ff);
 	}
 
-	drawRect(400, graphBaseline-60, 1, 60, graphRectColor);
-	drawRect(400, graphBaseline-60, 1024, 1, graphRectColor);
-	drawRect(400, graphBaseline, 1024, 1, graphRectColor);
-	drawRect(1424, graphBaseline-60, 1, 60, graphRectColor);
+	drawRect(graphStartX, graphBaseline-60, 1, 60, graphRectColor);
+	drawRect(graphStartX, graphBaseline-60, 1024, 1, graphRectColor);
+	drawRect(graphStartX, graphBaseline, 1024, 1, graphRectColor);
+	drawRect(graphStartX+1024, graphBaseline-60, 1, 60, graphRectColor);
 	
 	u32 FPSNumToDisplay = 0;
 	for (i32 i = 0; i < 100; i++)
@@ -848,21 +881,21 @@ void doFrame(f32 dt)
 	}
 	FPSNumToDisplay /= 100;
 	u32ToStr(FPSNumToDisplay, strings[22]);
-	renderBytes((u8 *)"FPS:", 4, 400, 70, 2, dbgFontColor);
-	renderString(22, 460, 70, 4, dbgFontColor);
+	renderText("FPS:", graphStartX, 70, 2, dbgFontColor);
+	renderString(22, graphStartX+60, 70, 4, dbgFontColor);
 
 
 	u32ToStr(getMemoryCapacity()/1024, strings[23]);
-	renderBytes((u8 *)"Total memory(kb):", 17, 1500, 10, 2, dbgFontColor);
-	renderString(23, 1740, 5, 4, dbgFontColor);
+	renderText("Total memory(kb):", 1700, 5, 2, dbgFontColor);
+	renderString(23, 1940, 1, 4, dbgFontColor);
 
 	u32ToStr(calculateUsedMemory()/1024, strings[24]);
-	renderBytes((u8 *)"Used memory(kb):", 16, 1500, 55, 2, dbgFontColor);
-	renderString(24, 1740, 50, 4, dbgFontColor);
+	renderText("Used memory(kb):", 1700, 45, 2, dbgFontColor);
+	renderString(24, 1940, 40, 4, dbgFontColor);
 
 	u32ToStr(100*calculateUsedMemory()/getMemoryCapacity(), strings[25]);
-	renderBytes((u8 *)"Taken(%):", 9, 1950, 12, 2, dbgFontColor);
-	renderString(25, 2080, 5, 4, dbgFontColor);
+	renderText("Taken(%):", 1700, 80, 2, dbgFontColor);
+	renderString(25, 1940, 77, 4, dbgFontColor);
 
 	u32ToStr(numActiveEntities, strings[26]);
 	u32ToStr(MAX_SIZE+1, strings[27]);
