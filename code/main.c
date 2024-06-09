@@ -701,7 +701,7 @@ static void drawIsometricTileOutline(i32 x, i32 y)
 	{
 		y = topY + ((f32)i / tileWidth) * tileHeight;
 		putPixel(mapToScreenX(x), mapToScreenY(y), color);
-		putPixel(mapToScreenX(x-(2*i)), mapToScreenY(y), color);
+		//putPixel(mapToScreenX(x-(2*i)), mapToScreenY(y), color);
 		x++;
 	}
 	// draw right to bottom
@@ -709,7 +709,7 @@ static void drawIsometricTileOutline(i32 x, i32 y)
 	{
 		y = (topY + (tileHeight / 2)) + ((f32)i / tileWidth) * tileHeight;
 		putPixel(mapToScreenX(x), mapToScreenY(y), color);
-		putPixel(mapToScreenX(x+(2*i)), mapToScreenY(y), color);
+		//putPixel(mapToScreenX(x+(2*i)), mapToScreenY(y), color);
 		x--;
 	}
 	// draw bottom to left
