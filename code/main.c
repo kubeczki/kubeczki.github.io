@@ -144,7 +144,7 @@ typedef struct Character
 	i32 coolness;
 } Character;
 
-#define MAX_SIZE 130000
+#define MAX_SIZE 288000
 static Character data[MAX_SIZE];
 static i32 freeIndices[MAX_SIZE];
 static i32 numFreeIndices = MAX_SIZE;
@@ -663,12 +663,19 @@ extern void callWindowAlert();
 extern u32 getMemoryCapacity();
 extern b32 getIsApplicationFocused();
 
-static i32 mapWidth = 30000;
-static i32 mapHeight = 15000;
+static i32 tileWidth = 100;
+static i32 tileHeight = 58; // NOTE: width*sqrt(3)/3
+static i32 tileSide = 115;
+
+static i32 numTilesHorizontally = 100;
+static i32 numTilesVertically = 300;
+
+static i32 mapWidth;
+static i32 mapHeight;
 
 static i32 cameraX = 0;
 static i32 cameraY = 0;
-static f32 pixelsPerUnit = 0.125;
+static f32 pixelsPerUnit = 0.5;
 
 static i32 mapToScreenX(i32 x)
 {
@@ -680,11 +687,55 @@ static i32 mapToScreenY(i32 y)
 	return (y - cameraY) * pixelsPerUnit;
 }
 
+static void drawIsometricTileOutline(i32 x, i32 y)
+{
+	u32 color = 0xff0000ff;
+	f32 sqrt3 = 1.732;
+	f32 sqrt3by3 = 0.577;
+	f32 topX = (x * tileWidth / 2) - (y * tileWidth / 2) + (numTilesVertically * tileWidth / 2);
+	f32 topY = (y * tileHeight / 2) + (x * tileHeight / 2);
+	// draw top to right
+	x = topX;
+	y = topY;
+	for (i32 i = 0; i < tileWidth/2; i++)
+	{
+		y = topY + ((f32)i / tileWidth) * tileHeight;
+		putPixel(mapToScreenX(x), mapToScreenY(y), color);
+		putPixel(mapToScreenX(x-(2*i)), mapToScreenY(y), color);
+		x++;
+	}
+	// draw right to bottom
+	for (i32 i = 0; i < tileWidth/2; i++)
+	{
+		y = (topY + (tileHeight / 2)) + ((f32)i / tileWidth) * tileHeight;
+		putPixel(mapToScreenX(x), mapToScreenY(y), color);
+		putPixel(mapToScreenX(x+(2*i)), mapToScreenY(y), color);
+		x--;
+	}
+	// draw bottom to left
+	//for (i32 i = 0; i < tileWidth/2; i++)
+	//{
+	//	y = (topY + tileHeight) - ((f32)i / tileWidth) * tileHeight;
+	//	putPixel(mapToScreenX(x), mapToScreenY(y), color);
+	//	x--;
+	//}
+	//// draw left to top
+	//for (i32 i = 0; i < tileWidth/2; i++)
+	//{
+	//	y = (topY + (tileHeight / 2)) - ((f32)i / tileWidth) * tileHeight;
+	//	putPixel(mapToScreenX(x), mapToScreenY(y), color);
+	//	x++;
+	//}
+}
+
 static i32 playerId;
 static Character player = { .active = 1, .coolness = 9999, .x = 1200, .y = 800 };
 
 void init()
 {
+	mapWidth = ((f32)(numTilesHorizontally + numTilesVertically) / 2.0f) * tileWidth;
+	mapHeight = ((f32)(numTilesHorizontally + numTilesVertically) / 2.0f) * tileHeight;
+
 	v128_t a = wasm_i32x4_make(1, 2, 3, 4);
     v128_t b = wasm_i32x4_make(5, 6, 7, 8);
     v128_t result = wasm_i32x4_add(a, b);
@@ -695,14 +746,13 @@ void init()
 	clearFramebuffer(0xff0000ff);
 	initData();
 	//playerId = insert(player);
-	i32 posStuff = 0;
-	f32 spawnStep = (f32)((mapWidth * mapHeight) / MAX_SIZE);
-	i32 spawnX = 0;
-	i32 spawnY = 0;
+	f32 spawnStep = (f32)(mapWidth * mapHeight) / (f32)MAX_SIZE;
+	f32 spawnX = 0;
+	f32 spawnY = 0;
 	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
-		spawnY = (i32)(spawnStep * (spawnX / mapWidth));
-		insert((Character) { .active = 1, .x = (i32)(spawnX % mapWidth), .y = (i32)(spawnY % mapHeight) });
+		spawnY = (i32)(spawnStep * (spawnX / (f32)mapWidth));
+		insert((Character) { .active = 1, .x = (i32)spawnX % mapWidth, .y = (i32)spawnY % mapHeight });
 		spawnX += spawnStep;
 	}
 
@@ -784,7 +834,7 @@ void doFrame(f32 dt)
 
 	// clear framebuffer
 	clearFramebuffer(0xff8956aa); // AABBBGGRR? is this some endian stuff?	
-	drawRect(mapToScreenX(0), mapToScreenY(0), mapWidth*pixelsPerUnit, mapHeight*pixelsPerUnit, 0xffab78cc);
+	drawRect(mapToScreenX(0), mapToScreenY(0), mapWidth*pixelsPerUnit, mapHeight*pixelsPerUnit, 0xfffffffd);
 
 	// RENDERING
 	i32 characterWidth = 64;
@@ -818,6 +868,15 @@ void doFrame(f32 dt)
 	UI_button(GEN_ID, "(btw: Tab i Shift+Tab dzialaja)", 50, 300);
 	drawRect(595, 295, 74, 58, 0xff000000);
 	drawRect(600, 300, 64, 48, test);
+
+	for (i32 i = 0; i < numTilesHorizontally; i++)
+	{
+		for (i32 j = 0; j < numTilesVertically; j++)
+		{
+			drawIsometricTileOutline(i, j);
+		}
+	}
+
 
 	// DEBUGGING
 	drawRect(0, 0, viewportWidth, 120, 0xff0a3f3f);
@@ -866,7 +925,7 @@ void doFrame(f32 dt)
 	for (i32 i = 1024; i > 0; i--)
 	{
 		dtBuffer[i] = dtBuffer[i-1];
-		if(dtBuffer[i]) drawRect(graphStartX + i, graphBaseline-30-(i32)(2*(16.0f-dtBuffer[i])), 1, 2, 0xffff00ff);
+		drawRect(graphStartX + i, graphBaseline-30+(i32)(16.0f-dtBuffer[i]), 1, 2, 0xffff00ff);
 	}
 
 	drawRect(graphStartX, graphBaseline-60, 1, 60, graphRectColor);
