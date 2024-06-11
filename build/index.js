@@ -203,6 +203,7 @@ async function init() {
 	let timestamp = 0;
 	let dt = 0;
 	const targetFrameDuration = 16.67;
+	/*
 	while (true) {
 		timestamp = performance.now();
 		dt = (timestamp - start);
@@ -225,7 +226,8 @@ async function init() {
 		const delta = targetFrameDuration - (performance.now() - timestamp);
 		if (delta > 0) await new Promise(r => setTimeout(r, 16-dt));
 	}
-	/*
+	*/
+	// NOTE: requestAnimationFrame does vSync!
 	function step(timestamp) {
         const dt = (timestamp - start);
         start = timestamp;
@@ -247,6 +249,5 @@ async function init() {
 		window.requestAnimationFrame(step);
     }
     window.requestAnimationFrame(step);
-	*/
 }
 init();

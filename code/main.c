@@ -138,39 +138,47 @@ static inline i32 getTextLen(char *text)
 ////////////////////////////////////////////////////////////////////////////////
 typedef struct Character
 {
-	b32 active;
 	i32 x;
 	i32 y;
+	b32 active;
 	i32 coolness;
 } Character;
 
-#define MAX_SIZE 288000
-static Character data[MAX_SIZE];
-static i32 freeIndices[MAX_SIZE];
-static i32 numFreeIndices = MAX_SIZE;
+#define MAX_SIZE 65536 // 32768
+//static Character data[MAX_SIZE];
+//static i32 freeIndices[MAX_SIZE];
+//static i32 numFreeIndices = MAX_SIZE;
 
-static inline void initData()
+// go from AoS to Soa
+// AoSoA would be array where one item is 4*entitiesData?
+static struct entitiesData
 {
-	i32 indexNumber = 0;
-	for (i32 i = MAX_SIZE-1; i >= 0; --i)
-	{
-		freeIndices[i] = indexNumber++;
-	}
-}
+	i32 x[MAX_SIZE] __attribute__((aligned(16)));
+	i32 y[MAX_SIZE] __attribute__((aligned(16)));
+} entitiesData;
 
-static inline i32 insert(Character input)
-{
-	Assert(numFreeIndices > 0); // TODO: Wonder if I even need it XD
-	i32 index = freeIndices[--numFreeIndices];
-	data[index] = input;
-	return index;
-}
-
-static inline void remove(i32 index)
-{
-	data[index].active = 0; // NOTE: see comment on this (bitflags, conditional moves, masked SIMD instructions)
-	freeIndices[numFreeIndices++] = index;
-}
+//static inline void initData()
+//{
+//	i32 indexNumber = 0;
+//	for (i32 i = MAX_SIZE-1; i >= 0; --i)
+//	{
+//		freeIndices[i] = indexNumber++;
+//	}
+//}
+//
+//static inline i32 insert(Character input)
+//{
+//	Assert(numFreeIndices > 0); // TODO: Wonder if I even need it XD
+//	i32 index = freeIndices[--numFreeIndices];
+//	data[index] = input;
+//	return index;
+//}
+//
+//static inline void remove(i32 index)
+//{
+//	data[index].active = 0; // NOTE: see comment on this (bitflags, conditional moves, masked SIMD instructions)
+//	freeIndices[numFreeIndices++] = index;
+//}
 
 // lookup: 			data[index];
 // update existing:	data[index] = input;
@@ -631,8 +639,6 @@ static byte UI_button(i32 id, char *label, i32 x, i32 y)
 	drawRect(x+buttonWidth-outlineWidth/2, y-outlineWidth/2, outlineWidth, buttonHeight+outlineWidth, 0xff000000);
 	drawRect(x-outlineWidth/2, y+buttonHeight-outlineWidth/2, buttonWidth+outlineWidth/2, outlineWidth, 0xff000000);
 	
-	// TODO: make button dimensions fit the text
-	// TODO: better interface for none text? different solution than current one?
 	if (label)
 	{
 		renderText(label, x + (buttonWidth - labelWidth)/2, y+15, 2, 0xff000000);
@@ -675,7 +681,7 @@ static i32 mapHeight;
 
 static i32 cameraX = 0;
 static i32 cameraY = 0;
-static f32 pixelsPerUnit = 0.5;
+static f32 pixelsPerUnit = 1;
 
 static i32 mapToScreenX(i32 x)
 {
@@ -687,44 +693,46 @@ static i32 mapToScreenY(i32 y)
 	return (y - cameraY) * pixelsPerUnit;
 }
 
+static v128_t mapToScreenVecX(v128_t vecX)
+{
+	v128_t vecCameraX = wasm_i32x4_splat(cameraX);
+	v128_t vecPixelsPerUnit = wasm_i32x4_splat(pixelsPerUnit);
+	return wasm_i32x4_mul(wasm_i32x4_sub(vecX, vecCameraX), vecPixelsPerUnit);
+}
+
+static v128_t mapToScreenVecY(v128_t vecY)
+{
+	v128_t vecCameraY = wasm_i32x4_splat(cameraY);
+	v128_t vecPixelsPerUnit = wasm_i32x4_splat(pixelsPerUnit);
+	return wasm_i32x4_mul(wasm_i32x4_sub(vecY, vecCameraY), vecPixelsPerUnit);
+}
+
 static void drawIsometricTileOutline(i32 x, i32 y)
 {
 	u32 color = 0xff0000ff;
-	f32 sqrt3 = 1.732;
-	f32 sqrt3by3 = 0.577;
 	f32 topX = (x * tileWidth / 2) - (y * tileWidth / 2) + (numTilesVertically * tileWidth / 2);
 	f32 topY = (y * tileHeight / 2) + (x * tileHeight / 2);
 	// draw top to right
 	x = topX;
 	y = topY;
-	for (i32 i = 0; i < tileWidth/2; i++)
-	{
-		y = topY + ((f32)i / tileWidth) * tileHeight;
-		putPixel(mapToScreenX(x), mapToScreenY(y), color);
-		//putPixel(mapToScreenX(x-(2*i)), mapToScreenY(y), color);
-		x++;
-	}
-	// draw right to bottom
-	for (i32 i = 0; i < tileWidth/2; i++)
-	{
-		y = (topY + (tileHeight / 2)) + ((f32)i / tileWidth) * tileHeight;
-		putPixel(mapToScreenX(x), mapToScreenY(y), color);
-		//putPixel(mapToScreenX(x+(2*i)), mapToScreenY(y), color);
-		x--;
-	}
-	// draw bottom to left
+	f32 accumulator = 0;
+	f32 ratio = (f32)tileHeight / (f32)tileWidth;
+	i32 rectWidth = 4;
+	drawRect(mapToScreenX(topX - rectWidth), mapToScreenY(topY - rectWidth), rectWidth, rectWidth, color);
 	//for (i32 i = 0; i < tileWidth/2; i++)
 	//{
-	//	y = (topY + tileHeight) - ((f32)i / tileWidth) * tileHeight;
+	//	y = topY + (f32)i * ratio;
 	//	putPixel(mapToScreenX(x), mapToScreenY(y), color);
-	//	x--;
-	//}
-	//// draw left to top
-	//for (i32 i = 0; i < tileWidth/2; i++)
-	//{
-	//	y = (topY + (tileHeight / 2)) - ((f32)i / tileWidth) * tileHeight;
-	//	putPixel(mapToScreenX(x), mapToScreenY(y), color);
+	//	//putPixel(mapToScreenX(x-(2*i)), mapToScreenY(y), color);
 	//	x++;
+	//}
+	//// draw right to bottom
+	//for (i32 i = 0; i < tileWidth/2; i++)
+	//{
+	//	y = (topY + (tileHeight / 2)) + (f32)i * ratio;
+	//	putPixel(mapToScreenX(x), mapToScreenY(y), color);
+	//	//putPixel(mapToScreenX(x+(2*i)), mapToScreenY(y), color);
+	//	x--;
 	//}
 }
 
@@ -736,34 +744,21 @@ void init()
 	mapWidth = ((f32)(numTilesHorizontally + numTilesVertically) / 2.0f) * tileWidth;
 	mapHeight = ((f32)(numTilesHorizontally + numTilesVertically) / 2.0f) * tileHeight;
 
-	v128_t a = wasm_i32x4_make(1, 2, 3, 4);
-    v128_t b = wasm_i32x4_make(5, 6, 7, 8);
-    v128_t result = wasm_i32x4_add(a, b);
-	i32 firstNum = wasm_i32x4_extract_lane(result, 1);
-	u32ToStr((u32)firstNum, strings[50]);
-
 	decompressFontFromBytes();
 	clearFramebuffer(0xff0000ff);
-	initData();
+	//initData();
 	//playerId = insert(player);
-	f32 spawnStep = (f32)(mapWidth * mapHeight) / (f32)MAX_SIZE;
+	f32 spawnStep = (f32)(mapWidth * mapHeight) / ((f32)(MAX_SIZE-1) / 16);
 	f32 spawnX = 0;
 	f32 spawnY = 0;
 	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
-		spawnY = (i32)(spawnStep * (spawnX / (f32)mapWidth));
-		insert((Character) { .active = 1, .x = (i32)spawnX % mapWidth, .y = (i32)spawnY % mapHeight });
+		spawnY = (i32)(spawnStep * ((i32)spawnX / mapWidth));
+		//insert((Character) { .active = 1, .x = (i32)spawnX % mapWidth, .y = (i32)spawnY % mapHeight });
+		entitiesData.x[i] = (i32)spawnX % mapWidth;
+		entitiesData.y[i] = (i32)spawnY % mapHeight;
 		spawnX += spawnStep;
 	}
-
-	setString("OK", 0);
-	setString("hex", 1);
-	setString("no.", 2);
-
-	char *someText = strings[2];
-	
-	setString("Kocham Olenke!!!", 10);
-	setString("(calym moim sercem <3<3<3)", 11);
 }
 
 static u32 FPSBuffer[1024];
@@ -789,6 +784,7 @@ void doFrame(f32 dt)
 	if (frameInput.keyboard.space.justPressed) isPaused = !isPaused; 
 	if (isPaused) 
 	{
+		drawRect(330, 530, getTextSize("GAME PAUSED. PRESS SPACE TO RESUME", 8)+240, 240, 0xff000000);
 		drawRect(350, 550, getTextSize("GAME PAUSED. PRESS SPACE TO RESUME", 8)+200, 200, 0xff);
 		renderText("GAME PAUSED. PRESS SPACE TO RESUME", 400, 600, 8, 0xff000000);
 		return;
@@ -796,7 +792,7 @@ void doFrame(f32 dt)
 
 	// TODO: Perhaps do like some enum for all the keycodes?
 	f32 playerSpeed = 3.0f;
-	f32 enemySpeed = 0.1f;
+	f32 enemySpeed = 3.0f;
 	if (frameInput.keyboard.arrowLeft.endedDown)
 	{
 		player.x -= playerSpeed * dt;
@@ -816,19 +812,37 @@ void doFrame(f32 dt)
 
 	cameraX = player.x - (viewportWidth / pixelsPerUnit) / 2;
 	cameraY = player.y - (viewportHeight / pixelsPerUnit) / 2;
-
-	i32 numActiveEntities = 0;
-	i32 pullRadius = 2000000;
-	for (i32 i = MAX_SIZE-1; i >= 0; --i)
+	
+	// UPDATE
+	v128_t vecPlayerX = wasm_i32x4_splat(player.x);
+    v128_t vecPlayerY = wasm_i32x4_splat(player.y);
+	v128_t vecPull = wasm_i32x4_splat(3);
+	v128_t squareRadius = wasm_i32x4_splat(1000);
+	for (i32 i = 0; i < MAX_SIZE; i += 4)
 	{
-		i32 dist = ((data[i].x - player.x) * (data[i].x - player.x) + (data[i].y - player.y) * (data[i].y - player.y));
-		f32 speed = enemySpeed * (1 - ((f32)dist / pullRadius)*((f32)dist / pullRadius));
-		//data[i].x += speed*dt * (player.x > data[i].x);
-		data[i].y += speed*dt * (player.y > data[i].y);
-		data[i].active = (data[i].x < mapWidth) && (data[i].x > 0) && (data[i].y < mapHeight) && (data[i].y > 0);
-		numActiveEntities += data[i].active;
-	}
+		v128_t vecX = wasm_v128_load(&entitiesData.x[i]);
+		v128_t vecY = wasm_v128_load(&entitiesData.y[i]);
 
+		v128_t distX = wasm_i32x4_sub(vecX, vecPlayerX);
+		v128_t distY = wasm_i32x4_sub(vecY, vecPlayerY);
+
+		v128_t withinSquareX = wasm_i32x4_le(wasm_i32x4_abs(distX), squareRadius);
+		v128_t withinSquareY = wasm_i32x4_le(wasm_i32x4_abs(distY), squareRadius);
+
+		v128_t withinSquare = wasm_v128_and(withinSquareX, withinSquareY);
+
+		v128_t vecDeltaX = wasm_i32x4_lt(vecX, vecPlayerX);
+		v128_t vecDeltaY = wasm_i32x4_lt(vecY, vecPlayerY);
+		vecDeltaX = wasm_v128_bitselect(wasm_i32x4_add(vecX, vecPull), wasm_i32x4_sub(vecX, vecPull), vecDeltaX);
+		vecDeltaY = wasm_v128_bitselect(wasm_i32x4_add(vecY, vecPull), wasm_i32x4_sub(vecY, vecPull), vecDeltaY);
+
+		v128_t moveX = wasm_v128_bitselect(vecDeltaX, vecX, withinSquare);
+		v128_t moveY = wasm_v128_bitselect(vecDeltaY, vecY, withinSquare);
+
+		wasm_v128_store(&entitiesData.x[i], moveX);
+		wasm_v128_store(&entitiesData.y[i], moveY);
+	}
+	
 	// imgui setup
 	UI_init();
 
@@ -837,17 +851,61 @@ void doFrame(f32 dt)
 	drawRect(mapToScreenX(0), mapToScreenY(0), mapWidth*pixelsPerUnit, mapHeight*pixelsPerUnit, 0xfffffffd);
 
 	// RENDERING
-	i32 characterWidth = 64;
+	i32 characterWidth = 32;
 	i32 screenCharacterWidth = characterWidth * pixelsPerUnit;
-	for (i32 i = MAX_SIZE-1; i >= 0; --i)
+	v128_t halfWidth = wasm_i32x4_splat(screenCharacterWidth / 2);
+	v128_t vecCameraX = wasm_i32x4_splat(cameraX);
+	v128_t vecCameraY = wasm_i32x4_splat(cameraY);
+	v128_t vecPixelsPerUnit = wasm_i32x4_splat(pixelsPerUnit);
+	u32 color = 0xff0066ff;
+	i32 intermediateScreenX[4], intermediateScreenY[4];
+	for (i32 i = 0; i < MAX_SIZE; i += 4)
 	{
-		i32 screenX = mapToScreenX(data[i].x);
-		i32 screenY = mapToScreenY(data[i].y);
-		drawRect(screenX - screenCharacterWidth/2, 
-				 screenY - screenCharacterWidth/2, 
-				 screenCharacterWidth/2, 
-				 screenCharacterWidth/2,
-				 0xff000000 + (i % 0x000088ff));
+		v128_t vecX = wasm_v128_load(&entitiesData.x[i]);
+		v128_t vecY = wasm_v128_load(&entitiesData.y[i]);
+
+		// Commented out for a while, coz pixelsPerUnit is a float! And I AIN'T BOUT DAT LIFE
+		//vecX = wasm_i32x4_mul(wasm_i32x4_sub(vecX, vecCameraX), vecPixelsPerUnit);
+		//vecY = wasm_i32x4_mul(wasm_i32x4_sub(vecY, vecCameraY), vecPixelsPerUnit);
+
+		vecX = wasm_i32x4_sub(vecX, vecCameraX);
+		vecY = wasm_i32x4_sub(vecY, vecCameraY);
+		
+		v128_t screenX = wasm_i32x4_sub(vecX, halfWidth);
+		v128_t screenY = wasm_i32x4_sub(vecY, halfWidth);
+
+		wasm_v128_store(&intermediateScreenX[0], screenX);
+		wasm_v128_store(&intermediateScreenY[0], screenY);
+
+		// TODO: Or make drawRect SIMD batch version
+		drawRect(
+			intermediateScreenX[0],
+			intermediateScreenY[0],
+			screenCharacterWidth / 2,
+			screenCharacterWidth / 2,
+			color
+		);
+		drawRect(
+			intermediateScreenX[1],
+			intermediateScreenY[1],
+			screenCharacterWidth / 2,
+			screenCharacterWidth / 2,
+			color
+		);
+		drawRect(
+			intermediateScreenX[2],
+			intermediateScreenY[2],
+			screenCharacterWidth / 2,
+			screenCharacterWidth / 2,
+			color
+		);
+		drawRect(
+			intermediateScreenX[3],
+			intermediateScreenY[3],
+			screenCharacterWidth / 2,
+			screenCharacterWidth / 2,
+			color
+		);
 	}
 	drawRect(mapToScreenX(player.x) - screenCharacterWidth, 
 			 mapToScreenY(player.y) - screenCharacterWidth, 
@@ -859,24 +917,31 @@ void doFrame(f32 dt)
 	static u32 test = 0xff0000ff;
 	static byte e = 0;
 	UI_button(GEN_ID, "Ok", 50, 150);
-	if (UI_button(GEN_ID, "OMG!!! Ten guzik ZMIENIA KOLOR TEGO PROSTOKATA???? OMGG!!!?!", 150, 150))
+	if (UI_button(GEN_ID, "Change that rect color, why not!", 150, 150))
 	{
 		e = e ? 0 : 1;
 		test = e ? 0xffffff00 : 0xff0000ff;
 	}
-	UI_button(GEN_ID, NULL, 1100, 150);
-	UI_button(GEN_ID, "(btw: Tab i Shift+Tab dzialaja)", 50, 300);
+	static b32 debugShouldDrawOutlines = 0;
+	if (UI_button(GEN_ID, debugShouldDrawOutlines ? "disable outlines" : "enable outlines", 700, 150))
+	{
+		debugShouldDrawOutlines = !debugShouldDrawOutlines;
+	}
+	UI_button(GEN_ID, "(btw: Tab and Shift+Tab work)", 50, 300);
 	drawRect(595, 295, 74, 58, 0xff000000);
 	drawRect(600, 300, 64, 48, test);
 
-	for (i32 i = 0; i < numTilesHorizontally; i++)
+	
+	if (debugShouldDrawOutlines)
 	{
-		for (i32 j = 0; j < numTilesVertically; j++)
+		for (i32 i = 0; i < numTilesHorizontally; i++)
 		{
-			drawIsometricTileOutline(i, j);
+			for (i32 j = 0; j < numTilesVertically; j++)
+			{
+				drawIsometricTileOutline(i, j);
+			}
 		}
 	}
-
 
 	// DEBUGGING
 	drawRect(0, 0, viewportWidth, 120, 0xff0a3f3f);
@@ -893,20 +958,20 @@ void doFrame(f32 dt)
 
 	u32ToStr(mapWidth, strings[22]);
 	renderText("map_width:", 1400, 10, 2, dbgFontColor);
-	renderString(22, 1550, 5, 4, dbgFontColor);
+	renderString(22, 1570, 5, 4, dbgFontColor);
 
 	u32ToStr(mapHeight, strings[23]);
 	renderText("map_height:", 1400, 50, 2, dbgFontColor);
-	renderString(23, 1550, 45, 4, dbgFontColor);
-
-	renderText("SIMD TEST:", 50, 400, 2, dbgFontColor);
-	renderString(50, 200, 400, 4, dbgFontColor);
+	renderString(23, 1570, 45, 4, dbgFontColor);
 
 	u32ToStr(player.x, strings[30]);
 	u32ToStr(player.y, strings[31]);
-	renderText("PlayerCoords: (     ,     )", 50, 450, 2, dbgFontColor);
-	renderString(30, 270, 450, 2, dbgFontColor);
-	renderString(31, 360, 450, 2, dbgFontColor);
+	renderText("PlayerCoords: (     ,     )", 50, 450, 2, 0xff000000);
+	renderString(30, 270, 450, 2, 0xff000000);
+	renderString(31, 360, 450, 2, 0xff000000);
+	renderText("No. Entities: ", 50, 550, 2, 0xff000000);
+	u32ToStr(MAX_SIZE, strings[32]);
+	renderString(32, 270, 550, 2, 0xff000000);
 
 	i32 graphStartX = 10;
 	i32 graphBaseline = 65;
@@ -945,22 +1010,22 @@ void doFrame(f32 dt)
 
 
 	u32ToStr(getMemoryCapacity()/1024, strings[23]);
-	renderText("Total memory(kb):", 1700, 5, 2, dbgFontColor);
-	renderString(23, 1940, 1, 4, dbgFontColor);
+	renderText("Total memory(kb):", 1750, 5, 2, dbgFontColor);
+	renderString(23, 2000, 1, 4, dbgFontColor);
 
 	u32ToStr(calculateUsedMemory()/1024, strings[24]);
-	renderText("Used memory(kb):", 1700, 45, 2, dbgFontColor);
-	renderString(24, 1940, 40, 4, dbgFontColor);
+	renderText("Used memory(kb):", 1750, 45, 2, dbgFontColor);
+	renderString(24, 2000, 40, 4, dbgFontColor);
 
 	u32ToStr(100*calculateUsedMemory()/getMemoryCapacity(), strings[25]);
-	renderText("Taken(%):", 1700, 80, 2, dbgFontColor);
-	renderString(25, 1940, 77, 4, dbgFontColor);
+	renderText("Taken(%):", 1750, 80, 2, dbgFontColor);
+	renderString(25, 2000, 77, 4, dbgFontColor);
 
-	u32ToStr(numActiveEntities, strings[26]);
-	u32ToStr(MAX_SIZE+1, strings[27]);
-	renderText("No. entities (active/all):", 2200, 12, 2, dbgFontColor);
-	renderString(26, 2600, 5, 4, 0xffffffff);
-	renderString(27, 2800, 5, 4, dbgFontColor);
+	//u32ToStr(numActiveEntities, strings[26]);
+	//u32ToStr(MAX_SIZE+1, strings[27]);
+	//renderText("No. entities (active/all):", 2200, 12, 2, dbgFontColor);
+	//renderString(26, 2600, 5, 4, 0xffffffff);
+	//renderString(27, 2800, 5, 4, dbgFontColor);
 
 	// imgui clear
 	UI_cleanup();
