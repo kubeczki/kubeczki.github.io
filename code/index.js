@@ -209,8 +209,6 @@ async function init() {
 		dt = (timestamp - start);
         start = timestamp;
 
-		// TODO: share input queue with C in this place?
-		// getInputQueue(inputStructPointer)
 		updateInputState();
 		memoryView.set(input, inputAddress);
 		oldInput.set(input);
@@ -232,8 +230,6 @@ async function init() {
         const dt = (timestamp - start);
         start = timestamp;
 
-		// TODO: share input queue with C in this place?
-		// getInputQueue(inputStructPointer)
 		updateInputState();
 		memoryView.set(input, inputAddress);
 		oldInput.set(input);

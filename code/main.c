@@ -966,9 +966,10 @@ void doFrame(f32 dt)
 
 	u32ToStr(player.x, strings[30]);
 	u32ToStr(player.y, strings[31]);
-	renderText("PlayerCoords: (     ,     )", 50, 450, 2, 0xff000000);
+	renderText("player.x:", 50, 450, 2, 0xff000000);
 	renderString(30, 270, 450, 2, 0xff000000);
-	renderString(31, 360, 450, 2, 0xff000000);
+	renderText("player.y:", 50, 480, 2, 0xff000000);
+	renderString(31, 270, 480, 2, 0xff000000);
 	renderText("No. Entities: ", 50, 550, 2, 0xff000000);
 	u32ToStr(MAX_SIZE, strings[32]);
 	renderString(32, 270, 550, 2, 0xff000000);
