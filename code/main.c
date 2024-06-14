@@ -93,7 +93,6 @@ static u64 MaxU64 = 0xffffffffffffffffULL;
 
 #include "wasm_simd128.h"
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // APPLICATION LOGIC
 ////////////////////////////////////////////////////////////////////////////////
@@ -145,17 +144,15 @@ typedef struct Character
 } Character;
 
 #define MAX_SIZE 4096 // 65536 // 32768
-//static Character data[MAX_SIZE];
-//static i32 freeIndices[MAX_SIZE];
-//static i32 numFreeIndices = MAX_SIZE;
-
-// go from AoS to Soa
-// AoSoA would be array where one item is 4*entitiesData?
 static struct entitiesData
 {
 	i32 x[MAX_SIZE] __attribute__((aligned(16)));
 	i32 y[MAX_SIZE] __attribute__((aligned(16)));
 } entitiesData;
+
+//static Character data[MAX_SIZE];
+//static i32 freeIndices[MAX_SIZE];
+//static i32 numFreeIndices = MAX_SIZE;
 
 //static inline void initData()
 //{
@@ -192,6 +189,7 @@ typedef struct ButtonState
 	byte justPressed;
 } ButtonState;
 
+// TODO: IMPORTANT: This is totally ignored in code, I just have a global mouseX, mouseY, wasPressed and that's it...
 typedef struct MouseInput
 {
 	// x and y handled as seperate statics
@@ -306,7 +304,6 @@ void drawRectSIMD(i32 x, i32 y, i32 width, i32 height, u32 color)
     i32 startY = ClampBottom(y, 0);
     i32 endY = ClampTop(y + height, viewportHeight);
 
-    // Load the color into a SIMD register
     v128_t colorVec = wasm_u32x4_splat(color);
 
     for (i32 i = startY; i < endY; i++)
@@ -314,7 +311,6 @@ void drawRectSIMD(i32 x, i32 y, i32 width, i32 height, u32 color)
         i32 rowStart = i * viewportWidth + startX;
         i32 rowEnd = i * viewportWidth + endX;
 
-        // Process 4 pixels at a time
         for (i32 j = rowStart; j < rowEnd; j += 4)
         {
             wasm_v128_store(&framebuffer[j], colorVec);
@@ -535,6 +531,43 @@ static void u32ToStr(u32 number, char *string) {
     }
 }
 
+static void i32ToStr(i32 number, char *string) {
+    int i = 0;
+    bool isNegative = false;
+
+    if (number == 0) {
+        string[i++] = '0';
+        string[i] = '\0';
+        return;
+    }
+
+    if (number < 0) {
+        isNegative = true;
+        number = -number;
+        string[i++] = '-';
+    }
+
+    while (number != 0) {
+        string[i++] = (number % 10) + '0';
+        number /= 10;
+    }
+
+    if (isNegative) {
+        for (int j = i - 1, k = i; j >= 1; j--, k--) {
+            string[k] = string[j];
+        }
+        string[0] = '-';
+    } else {
+        for (int j = 0, k = i - 1; j < k; j++, k--) {
+            char temp = string[j];
+            string[j] = string[k];
+            string[k] = temp;
+        }
+    }
+
+    string[i] = '\0';
+}
+
 static void UI_init()
 {
 	hotItem = 0;
@@ -620,15 +653,15 @@ void mouseUp()
 	mouseLeftClicked = 0;
 }
 
-void* myMalloc(i32 n) {
-	u32 r = bump_pointer;
-	bump_pointer += n;
-	return (void *)r;
-}
+//void* myMalloc(i32 n) {
+//	u32 r = bump_pointer;
+//	bump_pointer += n;
+//	return (void *)r;
+//}
 
-unsigned char* getMemory() {
-    return &__heap_base;
-}
+//unsigned char* getMemory() {
+//    return &__heap_base;
+//}
 
 u32 calculateUsedMemory()
 {
@@ -714,6 +747,7 @@ extern void callWindowAlert();
 extern u32 getMemoryCapacity();
 extern b32 getIsApplicationFocused();
 
+// TODO: POLISH IT ALL
 // IMPORTANT: tileEdgeInUnits signifies the number of the smallest addressable unit of size in program - you can't go lower than exactly one 'unit'
 static i32 tileEdgeInUnits = 16;
 static i32 tileWidth = 50;
@@ -757,113 +791,49 @@ typedef struct Tile
 	i32 y;
 } Tile;
 
-// Only need one conversion - raw coord to screen (remember that we're doing all the logic on an honest-to-God simple straight grid)
+// TODO: Bruh, work on those names, make them consistent!!!
 static Point pointToScreenPos(Point point)
 {
 	Point screenPos = {};
-	// TODO: NO IDEA IF THE BELOW WORKS CORRECTLY
-	// TODO: Musisz umieć odpowiedzieć na ważne pytanie - jak się ma ten atomic unit do reprezentacji na ekranie (ale na razie mozesz uproscic przypadek)
-	//screenPos.x = (point.x / tileEdgeInUnits) * (tileWidth / 2) - (point.y / tileEdgeInUnits) * (tileWidth / 2); // + (numTilesHorizontally * tileWidth / 2); // TODO: numTilesHorizontally or Vertically?
-	//screenPos.y = (point.y / tileEdgeInUnits) * (tileHeight / 2) + (point.x / tileEdgeInUnits) * (tileHeight / 2);
-	screenPos.x = (point.x - point.y) * pixelsPerHorizontalUnit;
-	screenPos.x = (screenPos.x - cameraX); // * pixelsPerUnit;
 
-	screenPos.y = (point.x + point.y)  * pixelsPerVerticalUnit; // SHOULDNT this and the above be divided by tileEdgeInUnits?
-	screenPos.y = (screenPos.y - cameraY); // * pixelsPerUnit;
+	screenPos.x = ((point.x - point.y) * pixelsPerHorizontalUnit) - cameraX;
+	screenPos.y = ((point.x + point.y)  * pixelsPerVerticalUnit) - cameraY;
 
 	return screenPos;
 }
 
-// TODO: SIMD Version
-// TODO: ERROR: should return a new value, you can't just modify the X u donkey!
-// TODO: maybe do divide it into two functions just for now for clarity: rawToIsometric -> isometricToScreen
-// TODO: SCRATCH THE ABOVE, do the thing from the notebook (no isometric (we may do a perspective twist - vertical is 'slower' than horizontal, coz of the way we're looking at the map))
 static v128_t pointToScreenPosXVec(v128_t vecX, v128_t vecY)
 {
 	v128_t vecCameraX = wasm_i32x4_splat(cameraX);
-	//v128_t vecTileEdgeInUnits = wasm_i32x4_splat(tileEdgeInUnits);
 	v128_t vecTileWidthHalf = wasm_i32x4_splat(tileWidth / 2);
 	v128_t vecHorizontal = wasm_i32x4_splat(pixelsPerHorizontalUnit);
-	//v128_t vecTip = wasm_i32x4_splat(numTilesHorizontally * tileWidth / 2);
-	//v128_t vecPixelsPerUnit = wasm_i32x4_splat(pixelsPerUnit);
-	//v128_t vecTemp = wasm_i32x4_sub(wasm_i32x4_mul(vecX, vecTileWidthHalf), wasm_i32x4_mul(vecY, vecTileWidthHalf));
 	v128_t vecTemp = wasm_i32x4_mul(wasm_i32x4_sub(vecX, vecY), vecHorizontal);
-	//vecTemp = wasm_i32x4_add(vecTemp, vecTip);
+	
 	return wasm_i32x4_sub(vecTemp, vecCameraX);
 }
 
 static v128_t pointToScreenPosYVec(v128_t vecX, v128_t vecY)
 {
 	v128_t vecCameraY = wasm_i32x4_splat(cameraY);
-	//v128_t vecTileEdgeInUnits = wasm_i32x4_splat(tileEdgeInUnits);
 	v128_t vecTileHeightHalf = wasm_i32x4_splat(tileHeight / 2);
 	v128_t vecVertical = wasm_i32x4_splat(pixelsPerVerticalUnit);
-	//v128_t vecPixelsPerUnit = wasm_i32x4_splat(pixelsPerUnit);
-	//v128_t vecTemp = wasm_i32x4_add(wasm_i32x4_mul(vecY, vecTileHeightHalf), wasm_i32x4_mul(vecX, vecTileHeightHalf));
 	v128_t vecTemp = wasm_i32x4_mul(wasm_i32x4_add(vecX, vecY), vecVertical);
+	
 	return wasm_i32x4_sub(vecTemp, vecCameraY);
 }
 
 static Point screenToMapPosition(Point mousePosition)
 {
-//	Point screenPos = {};
-//
-//	screenPos.x = (point.x - point.y) * pixelsPerHorizontalUnit;
-//	screenPos.x = (screenPos.x - cameraX); 
-//
-//	screenPos.y = (point.x + point.y)  * pixelsPerVerticalUnit;
-//	screenPos.y = (screenPos.y - cameraY);
-//
-//	return screenPos;
-
-	//
-
 	Point mapPos = {};
+	
 	mapPos.x = ((mousePosition.x + cameraX) / pixelsPerHorizontalUnit + (mousePosition.y + cameraY) / pixelsPerVerticalUnit) / 2;
 	mapPos.y = ((mousePosition.y + cameraY) / pixelsPerVerticalUnit - (mousePosition.x + cameraX) / pixelsPerHorizontalUnit) / 2;
+	
 	return mapPos;
 }
 
-static i32 mapToScreenX(i32 x)
-{
-	return (x - cameraX) * pixelsPerUnit;
-}
-
-static i32 mapToScreenY(i32 y)
-{
-	return (y - cameraY) * pixelsPerUnit;
-}
-
-static v128_t mapToScreenVecX(v128_t vecX)
-{
-	v128_t vecCameraX = wasm_i32x4_splat(cameraX);
-	v128_t vecPixelsPerUnit = wasm_i32x4_splat(pixelsPerUnit);
-	return wasm_i32x4_mul(wasm_i32x4_sub(vecX, vecCameraX), vecPixelsPerUnit);
-}
-
-static v128_t mapToScreenVecY(v128_t vecY)
-{
-	v128_t vecCameraY = wasm_i32x4_splat(cameraY);
-	v128_t vecPixelsPerUnit = wasm_i32x4_splat(pixelsPerUnit);
-	return wasm_i32x4_mul(wasm_i32x4_sub(vecY, vecCameraY), vecPixelsPerUnit);
-}
-
-static void drawIsometricTileOutline(i32 x, i32 y)
-{
-	u32 color = 0xff0000ff;
-	f32 topX = (x * tileWidth / 2) - (y * tileWidth / 2) + (numTilesVertically * tileWidth / 2);
-	f32 topY = (y * tileHeight / 2) + (x * tileHeight / 2);
-	// draw top to right
-	x = topX;
-	y = topY;
-	f32 accumulator = 0;
-	f32 ratio = (f32)tileHeight / (f32)tileWidth;
-	i32 rectWidth = 4;
-	drawRect(mapToScreenX(topX - rectWidth), mapToScreenY(topY - rectWidth), rectWidth, rectWidth, color);
-}
-
 static i32 playerId;
-static Character player = { .active = 1, .coolness = 9999, .x = 1200, .y = 800 };
+static Character player = { .active = 1, .coolness = 9999, .x = 500, .y = 200 };
 
 void init()
 {
@@ -872,7 +842,7 @@ void init()
 
 	decompressFontFromBytes();
 	clearFramebuffer(0xff0000ff);
-	//initData();
+	
 	//playerId = insert(player);
 	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
@@ -911,7 +881,7 @@ void doFrame(f32 dt)
 	}
 
 	// TODO: Perhaps do like some enum for all the keycodes?
-	i32 cameraSpeed = 1;
+	i32 cameraSpeed = 2;
 	i32 playerSpeed = 1;
 	i32 enemySpeed = 1;
 	if (frameInput.keyboard.arrowLeft.endedDown)
@@ -931,7 +901,6 @@ void doFrame(f32 dt)
 		cameraY += cameraSpeed * dt;
 	}
 
-	// Mouse control for player movement
 	static Point moveTarget = {};
 	static b32 shouldMove = false;
 
@@ -987,11 +956,11 @@ void doFrame(f32 dt)
 	UI_init();
 
 	// clear framebuffer
+	// TODO: This doesn't use the new isometric coord system
 	clearFramebufferSIMD(0xff8956aa); // AABBBGGRR? is this some endian stuff?	
-	drawRectSIMD(mapToScreenX(0), mapToScreenY(0), mapWidth*pixelsPerUnit, mapHeight*pixelsPerUnit, 0xfffffffd);
+	drawRectSIMD(-cameraX, -cameraY, mapWidth*pixelsPerUnit, mapHeight*pixelsPerUnit, 0xfffffffd);
 
 	// RENDER
-	// TODO: Update to the new coord system
 	i32 characterWidth = 32;
 	i32 screenCharacterWidth = characterWidth * pixelsPerUnit;
 	v128_t halfWidth = wasm_i32x4_splat(screenCharacterWidth / 2);
@@ -1009,20 +978,9 @@ void doFrame(f32 dt)
 		v128_t screenX = pointToScreenPosXVec(vecX, vecY);
 		v128_t screenY = pointToScreenPosYVec(vecX, vecY);
 
-		// Commented out for a while, coz pixelsPerUnit is a float! And I AIN'T BOUT DAT LIFE
-		//vecX = wasm_i32x4_mul(wasm_i32x4_sub(vecX, vecCameraX), vecPixelsPerUnit);
-		//vecY = wasm_i32x4_mul(wasm_i32x4_sub(vecY, vecCameraY), vecPixelsPerUnit);
-
-		//vecX = wasm_i32x4_sub(vecX, vecCameraX);
-		//vecY = wasm_i32x4_sub(vecY, vecCameraY);
-		//
-		//v128_t screenX = wasm_i32x4_sub(vecX, halfWidth);
-		//v128_t screenY = wasm_i32x4_sub(vecY, halfWidth);
-
 		wasm_v128_store(&intermediateScreenX[0], screenX);
 		wasm_v128_store(&intermediateScreenY[0], screenY);
 
-		// TODO: Or make drawRect SIMD batch version
 		drawRectSIMD(
 			intermediateScreenX[0],
 			intermediateScreenY[0],
@@ -1084,6 +1042,7 @@ void doFrame(f32 dt)
 			4,
 			debugColor
 		);
+		// END DEBUG
 	}
 	Point playerScreenPos = pointToScreenPos( (Point){ player.x, player.y });
 	drawRect(playerScreenPos.x, 
@@ -1101,6 +1060,7 @@ void doFrame(f32 dt)
 		8,
 		0xff000000
 	);
+	// END DEBUG
 
 	// UI
 	static u32 test = 0xff0000ff;
@@ -1119,18 +1079,6 @@ void doFrame(f32 dt)
 	UI_button(GEN_ID, "(btw: Tab and Shift+Tab work)", 50, 300);
 	drawRect(595, 295, 74, 58, 0xff000000);
 	drawRect(600, 300, 64, 48, test);
-
-	
-	if (debugShouldDrawOutlines)
-	{
-		for (i32 i = 0; i < numTilesHorizontally; i++)
-		{
-			for (i32 j = 0; j < numTilesVertically; j++)
-			{
-				drawIsometricTileOutline(i, j);
-			}
-		}
-	}
 
 	// DEBUGGING
 	drawRect(0, 0, viewportWidth, 120, 0xff0a3f3f);
@@ -1153,8 +1101,8 @@ void doFrame(f32 dt)
 	renderText("map_height:", 1400, 50, 2, dbgFontColor);
 	renderString(23, 1570, 45, 4, dbgFontColor);
 
-	u32ToStr(player.x, strings[30]);
-	u32ToStr(player.y, strings[31]);
+	i32ToStr(player.x, strings[30]);
+	i32ToStr(player.y, strings[31]);
 	renderText("player.x:", 50, 450, 2, 0xff000000);
 	renderString(30, 270, 450, 2, 0xff000000);
 	renderText("player.y:", 50, 480, 2, 0xff000000);
@@ -1163,21 +1111,21 @@ void doFrame(f32 dt)
 	u32ToStr(MAX_SIZE, strings[32]);
 	renderString(32, 270, 550, 2, 0xff000000);
 
-	u32ToStr(mouseX, strings[40]);
-	u32ToStr(mouseY, strings[41]);
+	i32ToStr(mouseX, strings[40]);
+	i32ToStr(mouseY, strings[41]);
 	renderText("mouse.x:", 50, 590, 2, 0xff000000);
 	renderString(40, 270, 590, 2, 0xff000000);
 	renderText("mouse.y:", 50, 620, 2, 0xff000000);
 	renderString(41, 270, 620, 2, 0xff000000);
 
 	Point mouseOnMap = screenToMapPosition((Point){ mouseX, mouseY });
-	u32ToStr(mouseOnMap.x, strings[42]);
-	u32ToStr(mouseOnMap.y, strings[43]);
+	i32ToStr(mouseOnMap.x, strings[42]);
+	i32ToStr(mouseOnMap.y, strings[43]);
 	renderText("mouse.x:", 50, 660, 2, 0xff000000);
 	renderString(42, 270, 660, 2, 0xff000000);
 	renderText("mouse.y:", 50, 690, 2, 0xff000000);
 	renderString(43, 270, 690, 2, 0xff000000);
-	renderText(shouldMove ? "YES" : "NO:", 50, 730, 2, 0xff000000);
+	renderText(shouldMove ? "ON THE MOVE" : "IDLE", 50, 730, 2, 0xff000000);
 
 	i32 graphStartX = 10;
 	i32 graphBaseline = 65;
