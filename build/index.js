@@ -181,6 +181,15 @@ async function init() {
 	gameCanvas.addEventListener('pointerup', e => {
         fromC.mouseUp();
     });
+	gameCanvas.addEventListener('wheel', e => {
+		e.preventDefault();
+		if (e.deltaY < 0){
+			fromC.mouseScrollWheelUp();
+		}
+		if (e.deltaY > 0){
+			fromC.mouseScrollWheelDown();
+		}
+	});
 
 	fromC.init();
 	const framebufferAddr = fromC.getFramebufferAddr();
