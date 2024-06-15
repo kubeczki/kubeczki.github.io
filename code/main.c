@@ -767,7 +767,8 @@ extern b32 getIsApplicationFocused();
 // IMPORTANT: tileEdgeInUnits signifies the number of the smallest addressable unit of size in program - you can't go lower than exactly one 'unit'
 static i32 tileEdgeInUnits = 256; 			// NOTE: this represents how many logical units fit in a tile edge (game/logic)
 
-static i32 logicalToScreenRatio = 4; 
+static i32 logicalToScreenRatio = 4; 		// NOTE: this represents the ratio of unitsPerTileEdge/pixelsToDisplayTileEdge
+											// NOTE: not shown here, but hardcoded as '2' in a lot of places is our isometric angle - horizontal is 2 times longer than vertical
 
 static i32 numTilesHorizontally = 100;
 static i32 numTilesVertically = 300;
@@ -1150,15 +1151,6 @@ void doFrame(f32 dt)
 		0xff000000
 	);
 	// END DEBUG
-//	 DEBUG CAMERA
-//	drawRectSIMD(
-//		deltaX + (cameraX / 4),
-//		deltaY + (cameraY / 4),
-//		8,
-//		8,
-//		0xff999999
-//	);
-//	 END DEBUG
 
 	// UI
 	static u32 test = 0xff0000ff;
