@@ -857,15 +857,21 @@ static void highlightTile(Point tileCoords, u32 color)
 
 	i32 hozPixelsPerTile = tileEdgeInUnits * unitInHorizontalPixels;
     i32 verPixelsPerTile = tileEdgeInUnits * unitInVerticalPixels;
-	i32 y = tileTopOnScreen.y;
-	i32 finish = y + 2 * verPixelsPerTile;
-	for (i32 i = 0; i < 2 * verPixelsPerTile; i++)
+	i32 counterY = 0;
+	i32 startY = tileTopOnScreen.y;
+	i32 endY = startY + 2 * verPixelsPerTile;
+	for (i32 i = 0; i < 2 * verPixelsPerTile; i += 2)
 	{
-		putPixel(tileTopOnScreen.x + i, y, color);
-		putPixel(tileTopOnScreen.x - i, y, color);
-		putPixel(tileTopOnScreen.x + i, finish - i/2, color);
-		putPixel(tileTopOnScreen.x - i, finish - i/2, color);
-		y += (i % 2);
+		putPixel(tileTopOnScreen.x + i, startY + counterY, color);
+		putPixel(tileTopOnScreen.x + i + 1, startY + counterY, color);
+		putPixel(tileTopOnScreen.x - i, startY + counterY, color);
+		putPixel(tileTopOnScreen.x - i - 1, startY + counterY, color);
+
+		putPixel(tileTopOnScreen.x + i, endY - counterY, color);
+		putPixel(tileTopOnScreen.x + i + 1, endY - counterY, color);
+		putPixel(tileTopOnScreen.x - i, endY - counterY, color);
+		putPixel(tileTopOnScreen.x - i - 1, endY - counterY, color);
+		counterY++;
 	}
 }
 
@@ -972,6 +978,7 @@ void doFrame(f32 dt)
 		i32 deltaY = (moveTarget.y > player.y) ? playerSpeed * dt : -playerSpeed * dt;
 		player.x += deltaX / 8;
 		player.y += deltaY / 8;
+
 		if (absI32(moveTarget.x - player.x) + absI32(moveTarget.y - player.y) < 10) shouldMove = 0;
 	}
 	
@@ -1203,6 +1210,8 @@ void doFrame(f32 dt)
 	renderText("mouseOnMap.y:", 50, 690, 2, 0xff000000);
 	renderString(43, 270, 690, 2, 0xff000000);
 	renderText(shouldMove ? "ON THE MOVE" : "IDLE", 50, 730, 2, 0xff000000);
+	Point moveTargetTile = getTileCoords((Point) { moveTarget.x, moveTarget.y });
+	if (shouldMove) highlightTile(moveTargetTile, 0xff000000);
 
 	Point mouseTile = getTileCoords(mouseOnMap);
 	highlightTile(mouseTile, 0xffad190f);
