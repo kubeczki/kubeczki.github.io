@@ -765,7 +765,8 @@ extern b32 getIsApplicationFocused();
 
 // TODO: POLISH IT ALL
 // IMPORTANT: tileEdgeInUnits signifies the number of the smallest addressable unit of size in program - you can't go lower than exactly one 'unit'
-static i32 tileEdgeInUnits = 256; 			// NOTE: this represents how many logical units fit in a tile edge (game/logic)
+static i32 tileEdgeInUnits = 128; 			// NOTE: this represents how many logical units fit in a tile edge (game/logic)
+											// I do wonder: do we want tile edge to represent a real life value, i.e. one meter?
 
 static i32 logicalToScreenRatio = 4; 		// NOTE: this represents the ratio of unitsPerTileEdge/pixelsToDisplayTileEdge
 											// NOTE: not shown here, but hardcoded as '2' in a lot of places is our isometric angle - horizontal is 2 times longer than vertical
@@ -779,6 +780,33 @@ static i32 mapHeight;
 static i32 cameraX = 0;
 static i32 cameraY = 0;
 
+void drawPlayer(i32 x, i32 y)
+{
+	i32 width = 80 / logicalToScreenRatio;
+	i32 height = 240 / logicalToScreenRatio;
+	u32 color = 0xff00ff00;
+	for (i32 i = ClampBottom(y-height, 0); i < ClampTop(y, viewportHeight); i++)
+	{
+		for (i32 j = ClampBottom((x-(width/2)), 0); j < ClampTop(x+(width/2), viewportWidth); j++)
+		{
+			framebuffer[i*viewportWidth + j] = color;
+		}
+	}
+}
+
+void drawEnemy(i32 x, i32 y)
+{
+	i32 width = 64 / logicalToScreenRatio;
+	i32 height = 120 / logicalToScreenRatio;
+	u32 color = 0xff4499ff;
+	for (i32 i = ClampBottom(y-height, 0); i < ClampTop(y, viewportHeight); i++)
+	{
+		for (i32 j = ClampBottom((x-(width/2)), 0); j < ClampTop(x+(width/2), viewportWidth); j++)
+		{
+			framebuffer[i*viewportWidth + j] = color;
+		}
+	}
+}
 
 i32 absI32(i32 num)
 {
@@ -792,13 +820,25 @@ i32 absI32(i32 num)
  * tile - coordinates of tile on grid, from 0 to numTiles, easily gettable by x / tileEdgeInUnits
  * do we want a distinct one for where relatively on a tile something is? But that's just easily gettable by x % tileEdgeInUnits...
  * and I guess the last one is where something is on screen
- * 
  */
 typedef struct Point
 {
 	i32 x;
 	i32 y;
 } Point;
+
+typedef enum TileStatus
+{
+	Blocked = (1 << 0),
+	Occupied = (1 << 1),
+} TileStatus;
+
+typedef struct Tile
+{
+	i32 x;
+	i32 y;
+	TileStatus status; // Do I really need this? Am I keeping an array of all tiles?
+} Tile;
 
 // TODO: Isn't this the culprit when it comes to displayed vs map representation?
 static Point pointToScreenPos(Point point)
@@ -843,6 +883,8 @@ static v128_t pointToScreenPosYVec(v128_t vecX, v128_t vecY)
 	return wasm_i32x4_sub(vecTemp, vecCameraY);
 }
 
+// TODO: rn I'm addressing each tile by a pair (x, y). But in the current approach I could make it just one number and even have an array?
+// But do note that x and y for indexing is easier when you need to get a neighbour or something, so verbose has its pros
 static Point getTileIndex(Point mapCoords)
 {
 	Point result = {}; 
@@ -915,8 +957,8 @@ void init()
 	//playerId = insert(player);
 	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
-		entitiesData.x[i] = (i % numTilesHorizontally) * tileEdgeInUnits;
-		entitiesData.y[i] = (i / numTilesHorizontally) * tileEdgeInUnits;
+		entitiesData.x[i] = (i % numTilesHorizontally) * tileEdgeInUnits + (tileEdgeInUnits/2);
+		entitiesData.y[i] = (i / numTilesHorizontally) * tileEdgeInUnits - (tileEdgeInUnits/2);
 	}
 }
 
@@ -997,13 +1039,21 @@ void doFrame(f32 dt)
 
 	if (shouldMove)
 	{
-		i32 deltaX = (moveTarget.x > player.x) ? playerSpeed * dt : -playerSpeed * dt;
-		i32 deltaY = (moveTarget.y > player.y) ? playerSpeed * dt : -playerSpeed * dt;
-		player.x += deltaX;
-		player.y += deltaY;
-
-		if (absI32(moveTarget.x - player.x) + absI32(moveTarget.y - player.y) < 10) shouldMove = 0;
+		if (absI32(moveTarget.x - player.x) + absI32(moveTarget.y - player.y) < 20) 
+		{
+			shouldMove = 0;
+		}
+		else
+		{
+			i32 deltaX = (moveTarget.x > player.x) ? playerSpeed * dt : -playerSpeed * dt;
+			i32 deltaY = (moveTarget.y > player.y) ? playerSpeed * dt : -playerSpeed * dt;
+			player.x += deltaX;
+			player.y += deltaY;
+		}
 	}
+	Point playerTile = getTileIndex((Point) { player.x, player.y });
+	v128_t playerTileX = wasm_i32x4_splat(playerTile.x);
+	v128_t playerTileY = wasm_i32x4_splat(playerTile.y);
 	
 	// UPDATE
 	v128_t vecPlayerX = wasm_i32x4_splat(player.x);
@@ -1015,21 +1065,26 @@ void doFrame(f32 dt)
 		v128_t vecX = wasm_v128_load(&entitiesData.x[i]);
 		v128_t vecY = wasm_v128_load(&entitiesData.y[i]);
 
-		v128_t distX = wasm_i32x4_sub(vecX, vecPlayerX);
-		v128_t distY = wasm_i32x4_sub(vecY, vecPlayerY);
+		// TODO: Nice, tho this was only a test and doesn't make sense going further.
+		Point entityTile = getTileIndex((Point) { entitiesData.x[i], entitiesData.y[i] });
+		Point entityTile2 = getTileIndex((Point) { entitiesData.x[i+1], entitiesData.y[i+1] });
+		Point entityTile3 = getTileIndex((Point) { entitiesData.x[i+2], entitiesData.y[i+2] });
+		Point entityTile4 = getTileIndex((Point) { entitiesData.x[i+3], entitiesData.y[i+3] });
 
-		v128_t withinSquareX = wasm_i32x4_le(wasm_i32x4_abs(distX), squareRadius);
-		v128_t withinSquareY = wasm_i32x4_le(wasm_i32x4_abs(distY), squareRadius);
+		v128_t tileX = wasm_i32x4_make(entityTile.x, entityTile2.x, entityTile3.x, entityTile4.x);
+		v128_t tileY = wasm_i32x4_make(entityTile.y, entityTile2.y, entityTile3.y, entityTile4.y);
 
-		v128_t withinSquare = wasm_v128_and(withinSquareX, withinSquareY);
+		v128_t withinTileX = wasm_i32x4_eq(playerTileX, tileX);
+		v128_t withinTileY = wasm_i32x4_eq(playerTileY, tileY);
+		v128_t withinTile = wasm_v128_and(withinTileX, withinTileY);
 
 		v128_t vecDeltaX = wasm_i32x4_lt(vecX, vecPlayerX);
 		v128_t vecDeltaY = wasm_i32x4_lt(vecY, vecPlayerY);
 		vecDeltaX = wasm_v128_bitselect(wasm_i32x4_add(vecX, vecPull), wasm_i32x4_sub(vecX, vecPull), vecDeltaX);
 		vecDeltaY = wasm_v128_bitselect(wasm_i32x4_add(vecY, vecPull), wasm_i32x4_sub(vecY, vecPull), vecDeltaY);
 
-		v128_t moveX = wasm_v128_bitselect(vecDeltaX, vecX, withinSquare);
-		v128_t moveY = wasm_v128_bitselect(vecDeltaY, vecY, withinSquare);
+		v128_t moveX = wasm_v128_bitselect(vecDeltaX, vecX, withinTile);
+		v128_t moveY = wasm_v128_bitselect(vecDeltaY, vecY, withinTile);
 
 		wasm_v128_store(&entitiesData.x[i], moveX);
 		wasm_v128_store(&entitiesData.y[i], moveY);
@@ -1069,34 +1124,10 @@ void doFrame(f32 dt)
 		wasm_v128_store(&intermediateScreenX[0], screenX);
 		wasm_v128_store(&intermediateScreenY[0], screenY);
 
-		drawRectSIMD(
-			intermediateScreenX[0],
-			intermediateScreenY[0],
-			screenCharacterWidth / 2,
-			screenCharacterWidth / 2,
-			color
-		);
-		drawRectSIMD(
-			intermediateScreenX[1],
-			intermediateScreenY[1],
-			screenCharacterWidth / 2,
-			screenCharacterWidth / 2,
-			color
-		);
-		drawRectSIMD(
-			intermediateScreenX[2],
-			intermediateScreenY[2],
-			screenCharacterWidth / 2,
-			screenCharacterWidth / 2,
-			color
-		);
-		drawRectSIMD(
-			intermediateScreenX[3],
-			intermediateScreenY[3],
-			screenCharacterWidth / 2,
-			screenCharacterWidth / 2,
-			color
-		);
+		drawEnemy(intermediateScreenX[0], intermediateScreenY[0]);
+		drawEnemy(intermediateScreenX[1], intermediateScreenY[1]);
+		drawEnemy(intermediateScreenX[2], intermediateScreenY[2]);
+		drawEnemy(intermediateScreenX[3], intermediateScreenY[3]);
 
 		// DEBUG
 		i32 deltaX = viewportWidth - 500;
@@ -1134,11 +1165,7 @@ void doFrame(f32 dt)
 		// END DEBUG
 	}
 	Point playerScreenPos = pointToScreenPos( (Point){ player.x, player.y });
-	drawRect(playerScreenPos.x, 
-			 playerScreenPos.y, 
-			 screenCharacterWidth,
-			 screenCharacterWidth,
-			 0xff00ff00);
+	drawPlayer(playerScreenPos.x, playerScreenPos.y);
 	// DEBUG
 	i32 deltaX = viewportWidth - 500;
 	i32 deltaY = 300;
@@ -1196,14 +1223,13 @@ void doFrame(f32 dt)
 	renderString(30, 270, 400, 2, 0xff000000);
 	renderText("player.y:", 50, 430, 2, 0xff000000);
 	renderString(31, 270, 430, 2, 0xff000000);
-	Point playerTile = getTileIndex((Point) { player.x, player.y });
 	i32ToStr(playerTile.x, strings[48]);
 	i32ToStr(playerTile.y, strings[49]);
 	renderText("playerTile.x:", 50, 470, 2, 0xff000000);
 	renderString(48, 270, 470, 2, 0xff000000);
 	renderText("playerTile.y:", 50, 500, 2, 0xff000000);
-	highlightTile(playerTile, 0xffaa00ff);
 	renderString(49, 270, 500, 2, 0xff000000);
+	highlightTile(playerTile, 0xffaa00ff);
 	renderText("No. Entities: ", 50, 550, 2, 0xff000000);
 	u32ToStr(MAX_SIZE, strings[32]);
 	renderString(32, 270, 550, 2, 0xff000000);
@@ -1225,6 +1251,15 @@ void doFrame(f32 dt)
 	renderText(shouldMove ? "ON THE MOVE" : "IDLE", 50, 730, 2, 0xff000000);
 	Point moveTargetTile = getTileIndex((Point) { moveTarget.x, moveTarget.y });
 	if (shouldMove) highlightTile(moveTargetTile, 0xff000000);
+
+	Point testTile = getTileIndex((Point) { entitiesData.x[0], entitiesData.y[0] });
+	highlightTile(testTile, 0xff0000ff);
+	i32ToStr(testTile.x, strings[50]);
+	i32ToStr(testTile.y, strings[51]);
+	renderText("testTile.x:", 50, 750, 2, 0xff000000);
+	renderString(50, 270, 750, 2, 0xff000000);
+	renderText("testTile.y:", 50, 780, 2, 0xff000000);
+	renderString(51, 270, 780, 2, 0xff000000);
 
 	Point mouseTile = getTileIndex(mouseOnMap);
 	highlightTile(mouseTile, 0xffad190f);
