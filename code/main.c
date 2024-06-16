@@ -808,9 +808,9 @@ void drawEnemy(i32 x, i32 y)
 	}
 }
 
-i32 absI32(i32 num)
-{
-	return (num < 0) ? -num : num;
+static inline i32 absI32(i32 num) {
+    i32 mask = num >> 31;
+    return (num ^ mask) - mask;
 }
 
 /*
@@ -840,15 +840,12 @@ typedef struct Tile
 	TileStatus status; // Do I really need this? Am I keeping an array of all tiles?
 } Tile;
 
-// TODO: Isn't this the culprit when it comes to displayed vs map representation?
-static Point pointToScreenPos(Point point)
+static inline Point pointToScreenPos(Point point)
 {
-	Point screenPos = {};
-
-	screenPos.x = ((point.x - point.y) * 2) / logicalToScreenRatio - cameraX;
-	screenPos.y = (point.x + point.y) / logicalToScreenRatio - cameraY;
-
-	return screenPos;
+	return (Point){
+		.x = ((point.x - point.y) * 2) / logicalToScreenRatio - cameraX,
+		.y = (point.x + point.y) / logicalToScreenRatio - cameraY
+	};
 }
 
 static v128_t pointToScreenPosXVec(v128_t vecX, v128_t vecY)
@@ -885,12 +882,12 @@ static v128_t pointToScreenPosYVec(v128_t vecX, v128_t vecY)
 
 // TODO: rn I'm addressing each tile by a pair (x, y). But in the current approach I could make it just one number and even have an array?
 // But do note that x and y for indexing is easier when you need to get a neighbour or something, so verbose has its pros
-static Point getTileIndex(Point mapCoords)
+static inline Point getTileCoords(Point mapCoords)
 {
-	Point result = {}; 
-	result.x = (mapCoords.x > 0) ? (mapCoords.x / tileEdgeInUnits) : (mapCoords.x / tileEdgeInUnits)-1;
-	result.y = (mapCoords.y > 0) ? (mapCoords.y / tileEdgeInUnits) : (mapCoords.y / tileEdgeInUnits)-1;
-	return result;
+	return (Point){
+		.x = (mapCoords.x / tileEdgeInUnits) - (mapCoords.x <= 0),
+		.y = (mapCoords.y / tileEdgeInUnits) - (mapCoords.y <= 0)
+	};
 }
 
 static void highlightTile(Point tileCoords, u32 color)
@@ -930,21 +927,16 @@ static void drawTileGridOverlay()
 	}
 }
 
-static Point screenToMapPosition(Point mousePosition)
+static inline Point screenToMapPosition(Point mousePosition)
 {
-	Point mapPos = {};
-
-    int32_t scaledScreenX = (int32_t)((mousePosition.x + cameraX) / 2);
-    int32_t scaledScreenY = (int32_t)((mousePosition.y + cameraY));
-
-    mapPos.x = (scaledScreenX + scaledScreenY) / (2.0f / logicalToScreenRatio);
-    mapPos.y = (scaledScreenY - scaledScreenX) / (2.0f / logicalToScreenRatio);
-
-    return mapPos;
+	return (Point){
+		.x = (((mousePosition.x + cameraX) / 2) + mousePosition.y + cameraY) * (logicalToScreenRatio / 2),
+		.y = (mousePosition.y + cameraY - ((mousePosition.x + cameraX) / 2)) * (logicalToScreenRatio / 2)
+	};
 }
 
 static i32 playerId;
-static Character player = { .active = 1, .coolness = 9999, .x = 500, .y = 200 };
+static Character player = { .active = 1, .coolness = 9999, .x = 0, .y = 0 };
 
 void init()
 {
@@ -974,6 +966,9 @@ u32 getMaxViewportHeight()
 {
 	return MAX_VIEWPORT_HEIGHT;
 }
+
+static Point moveTarget = {};
+static b32 shouldMove = false;
 
 void doFrame(f32 dt)
 {
@@ -1024,34 +1019,19 @@ void doFrame(f32 dt)
 		}
 	}
 
-
-	static Point moveTarget = {};
-	static b32 shouldMove = false;
-
 	// TODO: check this out, doesn't work
 	//if (frameInput.mouse.leftMB.justPressed)
-	if (mouseLeftClicked)
-	{
-		Point mouseScreenPosition = { mouseX, mouseY };
-		moveTarget = screenToMapPosition(mouseScreenPosition);
-		shouldMove = true;
-	}
+	shouldMove = mouseLeftClicked;
+	Point mouseScreenPosition = { mouseX, mouseY };
+	moveTarget = mouseLeftClicked ? screenToMapPosition(mouseScreenPosition) : moveTarget;
 
-	if (shouldMove)
-	{
-		if (absI32(moveTarget.x - player.x) + absI32(moveTarget.y - player.y) < 20) 
-		{
-			shouldMove = 0;
-		}
-		else
-		{
-			i32 deltaX = (moveTarget.x > player.x) ? playerSpeed * dt : -playerSpeed * dt;
-			i32 deltaY = (moveTarget.y > player.y) ? playerSpeed * dt : -playerSpeed * dt;
-			player.x += deltaX;
-			player.y += deltaY;
-		}
-	}
-	Point playerTile = getTileIndex((Point) { player.x, player.y });
+	shouldMove = absI32(moveTarget.x - player.x) + absI32(moveTarget.y - player.y) > 20;
+	i32 deltaX = shouldMove * ((moveTarget.x > player.x) - (moveTarget.x < player.x)) * playerSpeed * dt;
+	i32 deltaY = shouldMove * ((moveTarget.y > player.y) - (moveTarget.y < player.y)) * playerSpeed * dt;
+	player.x += deltaX;
+	player.y += deltaY;
+
+	Point playerTile = getTileCoords((Point) { player.x, player.y });
 	v128_t playerTileX = wasm_i32x4_splat(playerTile.x);
 	v128_t playerTileY = wasm_i32x4_splat(playerTile.y);
 	
@@ -1066,10 +1046,10 @@ void doFrame(f32 dt)
 		v128_t vecY = wasm_v128_load(&entitiesData.y[i]);
 
 		// TODO: Nice, tho this was only a test and doesn't make sense going further.
-		Point entityTile = getTileIndex((Point) { entitiesData.x[i], entitiesData.y[i] });
-		Point entityTile2 = getTileIndex((Point) { entitiesData.x[i+1], entitiesData.y[i+1] });
-		Point entityTile3 = getTileIndex((Point) { entitiesData.x[i+2], entitiesData.y[i+2] });
-		Point entityTile4 = getTileIndex((Point) { entitiesData.x[i+3], entitiesData.y[i+3] });
+		Point entityTile = getTileCoords((Point) { entitiesData.x[i], entitiesData.y[i] });
+		Point entityTile2 = getTileCoords((Point) { entitiesData.x[i+1], entitiesData.y[i+1] });
+		Point entityTile3 = getTileCoords((Point) { entitiesData.x[i+2], entitiesData.y[i+2] });
+		Point entityTile4 = getTileCoords((Point) { entitiesData.x[i+3], entitiesData.y[i+3] });
 
 		v128_t tileX = wasm_i32x4_make(entityTile.x, entityTile2.x, entityTile3.x, entityTile4.x);
 		v128_t tileY = wasm_i32x4_make(entityTile.y, entityTile2.y, entityTile3.y, entityTile4.y);
@@ -1091,7 +1071,7 @@ void doFrame(f32 dt)
 	}
 	
 	// imgui setup
-	UI_init();
+	UI_init();	// TODO: inline?
 
 	// clear framebuffer
 	// TODO: This doesn't use the new isometric coord system
@@ -1101,7 +1081,9 @@ void doFrame(f32 dt)
 	static b32 debugShouldDrawOutlines = 0;
 	if (debugShouldDrawOutlines)
 	{
-		drawTileGridOverlay();
+		drawTileGridOverlay();	// TODO: inline? Or is it always going to be just a debugging thing and don't bother?
+								// Or do do that, to fix the performance a bit, since this is a bit of a special case internally
+								// Could make it also span the whole screen
 	}
 
 	// RENDER
@@ -1118,8 +1100,8 @@ void doFrame(f32 dt)
 		v128_t vecY = wasm_v128_load(&entitiesData.y[i]);
 
 
-		v128_t screenX = pointToScreenPosXVec(vecX, vecY);
-		v128_t screenY = pointToScreenPosYVec(vecX, vecY);
+		v128_t screenX = pointToScreenPosXVec(vecX, vecY); // TODO: inline
+		v128_t screenY = pointToScreenPosYVec(vecX, vecY); // TODO: inline
 
 		wasm_v128_store(&intermediateScreenX[0], screenX);
 		wasm_v128_store(&intermediateScreenY[0], screenY);
@@ -1167,12 +1149,12 @@ void doFrame(f32 dt)
 	Point playerScreenPos = pointToScreenPos( (Point){ player.x, player.y });
 	drawPlayer(playerScreenPos.x, playerScreenPos.y);
 	// DEBUG
-	i32 deltaX = viewportWidth - 500;
-	i32 deltaY = 300;
+	i32 debugDeltaX = viewportWidth - 500;
+	i32 debugDeltaY = 300;
 	i32 scale = 32;
 	drawRectSIMD(
-		deltaX + (player.x / scale),
-		deltaY + (player.y / scale),
+		debugDeltaX + (player.x / scale),
+		debugDeltaY + (player.y / scale),
 		8,
 		8,
 		0xff000000
@@ -1201,6 +1183,10 @@ void doFrame(f32 dt)
 
 	u32 dbgFontColor = 0xffcccccc;
 
+
+	// TODO:
+	// I know that it doesn't seem like it makes sense, but maybe try inlining the below?
+	// Perhaps you'll notice a pattern that allows to batch some stuff?
 	u32ToStr(viewportWidth, strings[20]);
 	renderText("vwprt_width:", 1050, 10, 2, dbgFontColor);
 	renderString(20, 1240, 5, 4, dbgFontColor);
@@ -1249,10 +1235,10 @@ void doFrame(f32 dt)
 	renderText("mouseOnMap.y:", 50, 690, 2, 0xff000000);
 	renderString(43, 270, 690, 2, 0xff000000);
 	renderText(shouldMove ? "ON THE MOVE" : "IDLE", 50, 730, 2, 0xff000000);
-	Point moveTargetTile = getTileIndex((Point) { moveTarget.x, moveTarget.y });
+	Point moveTargetTile = getTileCoords((Point) { moveTarget.x, moveTarget.y });
 	if (shouldMove) highlightTile(moveTargetTile, 0xff000000);
 
-	Point testTile = getTileIndex((Point) { entitiesData.x[0], entitiesData.y[0] });
+	Point testTile = getTileCoords((Point) { entitiesData.x[0], entitiesData.y[0] });
 	highlightTile(testTile, 0xff0000ff);
 	i32ToStr(testTile.x, strings[50]);
 	i32ToStr(testTile.y, strings[51]);
@@ -1261,7 +1247,7 @@ void doFrame(f32 dt)
 	renderText("testTile.y:", 50, 780, 2, 0xff000000);
 	renderString(51, 270, 780, 2, 0xff000000);
 
-	Point mouseTile = getTileIndex(mouseOnMap);
+	Point mouseTile = getTileCoords(mouseOnMap);
 	highlightTile(mouseTile, 0xffad190f);
 
 	i32 graphStartX = 10;
