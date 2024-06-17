@@ -589,7 +589,7 @@ static void UI_init()
 
 static void UI_cleanup()
 {
-	if (frameInput.mouse.leftMB.justPressed == 0)
+	if (frameInput.mouse.leftMB.endedDown == 0)
 	{
 		activeItem = 0;
 	}
@@ -757,7 +757,7 @@ static byte UI_button(i32 id, char *label, i32 x, i32 y)
 	}
 	lastItem = id;
 
-	wasPressed = wasPressed || (frameInput.mouse.leftMB.justPressed == 0 && hotItem == id && activeItem == id);
+	wasPressed = wasPressed || (frameInput.mouse.leftMB.endedDown == 0 && hotItem == id && activeItem == id);
 	return wasPressed;
 }
 
@@ -1051,7 +1051,6 @@ void doFrame(f32 dt)
 	}
 
 	// TODO: check this out, doesn't work
-	//if (frameInput.mouse.leftMB.justPressed)
 	if (frameInput.mouse.leftMB.justPressed)
 	{
 		shouldMove[selectedPC] = true;
