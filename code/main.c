@@ -220,6 +220,16 @@ typedef struct KeyboardInput
 			ButtonState enter;
 			ButtonState tab;
 			ButtonState escape;
+			ButtonState digit1;
+			ButtonState digit2;
+			ButtonState digit3;
+			ButtonState digit4;
+			ButtonState digit5;
+			ButtonState digit6;
+			ButtonState digit7;
+			ButtonState digit8;
+			ButtonState digit9;
+			ButtonState digit0;
 		};
 	};
 	ButtonState shift;
@@ -771,7 +781,7 @@ static i32 tileEdgeInUnits = 128; 			// NOTE: this represents how many logical u
 static i32 logicalToScreenRatio = 4; 		// NOTE: this represents the ratio of unitsPerTileEdge/pixelsToDisplayTileEdge
 											// NOTE: not shown here, but hardcoded as '2' in a lot of places is our isometric angle - horizontal is 2 times longer than vertical
 
-static i32 numTilesHorizontally = 100;
+static i32 numTilesHorizontally = 600;
 static i32 numTilesVertically = 300;
 
 static i32 mapWidth;
@@ -780,11 +790,10 @@ static i32 mapHeight;
 static i32 cameraX = 0;
 static i32 cameraY = 0;
 
-void drawPlayer(i32 x, i32 y)
+void drawPlayerCharacter(i32 x, i32 y, u32 color)
 {
 	i32 width = 80 / logicalToScreenRatio;
-	i32 height = 240 / logicalToScreenRatio;
-	u32 color = 0xff00ff00;
+	i32 height = 320 / logicalToScreenRatio;
 	for (i32 i = ClampBottom(y-height, 0); i < ClampTop(y, viewportHeight); i++)
 	{
 		for (i32 j = ClampBottom((x-(width/2)), 0); j < ClampTop(x+(width/2), viewportWidth); j++)
@@ -935,8 +944,11 @@ static inline Point screenToMapPosition(Point mousePosition)
 	};
 }
 
-static i32 playerId;
-static Character player = { .active = 1, .coolness = 9999, .x = 0, .y = 0 };
+#define MAX_PLAYER_CHARACTERS 5
+static Character playerCharacters[MAX_PLAYER_CHARACTERS] = {};
+static i32 selectedPC;
+static Point moveTargets[MAX_PLAYER_CHARACTERS] = {};
+static b32 shouldMove[MAX_PLAYER_CHARACTERS] = {};
 
 void init()
 {
@@ -945,6 +957,12 @@ void init()
 
 	decompressFontFromBytes();
 	clearFramebuffer(0xff0000ff);
+
+	playerCharacters[0] = (Character){ .active = 1, .coolness = 9999, .x = 0, .y = 0 };
+	playerCharacters[1] = (Character){ .active = 1, .coolness = 9999, .x = 1000, .y = 500 };
+	playerCharacters[2] = (Character){ .active = 1, .coolness = 9999, .x = 500, .y = 1000 };
+	playerCharacters[3] = (Character){ .active = 1, .coolness = 9999, .x = -300, .y = -300 };
+	playerCharacters[4] = (Character){ .active = 1, .coolness = 9999, .x = 0, .y = 3000 };
 	
 	//playerId = insert(player);
 	for (i32 i = 0; i < MAX_SIZE; i++)
@@ -967,9 +985,6 @@ u32 getMaxViewportHeight()
 	return MAX_VIEWPORT_HEIGHT;
 }
 
-static Point moveTarget = {};
-static b32 shouldMove = false;
-
 void doFrame(f32 dt)
 {
 	if (frameInput.keyboard.space.justPressed) isPaused = !isPaused; 
@@ -979,6 +994,27 @@ void doFrame(f32 dt)
 		drawRect(350, 550, getTextSize("GAME PAUSED. PRESS SPACE TO RESUME", 8)+200, 200, 0xff);
 		renderText("GAME PAUSED. PRESS SPACE TO RESUME", 400, 600, 8, 0xff000000);
 		return;
+	}
+
+	if (frameInput.keyboard.digit1.endedDown)
+	{
+		selectedPC = 0;
+	}
+	if (frameInput.keyboard.digit2.endedDown)
+	{
+		selectedPC = 1;
+	}
+	if (frameInput.keyboard.digit3.endedDown)
+	{
+		selectedPC = 2;
+	}
+	if (frameInput.keyboard.digit4.endedDown)
+	{
+		selectedPC = 3;
+	}
+	if (frameInput.keyboard.digit5.endedDown)
+	{
+		selectedPC = 4;
 	}
 
 	// TODO: Perhaps do like some enum for all the keycodes?
@@ -1021,23 +1057,33 @@ void doFrame(f32 dt)
 
 	// TODO: check this out, doesn't work
 	//if (frameInput.mouse.leftMB.justPressed)
-	shouldMove = mouseLeftClicked;
-	Point mouseScreenPosition = { mouseX, mouseY };
-	moveTarget = mouseLeftClicked ? screenToMapPosition(mouseScreenPosition) : moveTarget;
+	if (mouseLeftClicked)
+	{
+		shouldMove[selectedPC] = true;
+		Point mouseScreenPosition = { mouseX, mouseY };
+		moveTargets[selectedPC] = screenToMapPosition(mouseScreenPosition);
+	}
+//	if (mouseRightClicked)
+//	{
+//		shouldMove[selectedPC] = false;
+//	}
+	for (i32 i = 0; i < MAX_PLAYER_CHARACTERS; i++)
+	{
+		i32 deltaX = shouldMove[i] * ((moveTargets[i].x > playerCharacters[i].x) - (moveTargets[i].x < playerCharacters[i].x)) * playerSpeed * dt;
+		i32 deltaY = shouldMove[i] * ((moveTargets[i].y > playerCharacters[i].y) - (moveTargets[i].y < playerCharacters[i].y)) * playerSpeed * dt;
+		playerCharacters[i].x += deltaX;
+		playerCharacters[i].y += deltaY;
+		shouldMove[i] = shouldMove[i] && (absI32(moveTargets[i].x - playerCharacters[i].x) + absI32(moveTargets[i].y - playerCharacters[i].y) > 20);
+	}
 
-	shouldMove = absI32(moveTarget.x - player.x) + absI32(moveTarget.y - player.y) > 20;
-	i32 deltaX = shouldMove * ((moveTarget.x > player.x) - (moveTarget.x < player.x)) * playerSpeed * dt;
-	i32 deltaY = shouldMove * ((moveTarget.y > player.y) - (moveTarget.y < player.y)) * playerSpeed * dt;
-	player.x += deltaX;
-	player.y += deltaY;
 
-	Point playerTile = getTileCoords((Point) { player.x, player.y });
+	Point playerTile = getTileCoords((Point) { playerCharacters[selectedPC].x, playerCharacters[selectedPC].y });
 	v128_t playerTileX = wasm_i32x4_splat(playerTile.x);
 	v128_t playerTileY = wasm_i32x4_splat(playerTile.y);
 	
 	// UPDATE
-	v128_t vecPlayerX = wasm_i32x4_splat(player.x);
-    v128_t vecPlayerY = wasm_i32x4_splat(player.y);
+	v128_t vecPlayerX = wasm_i32x4_splat(playerCharacters[selectedPC].x);
+    v128_t vecPlayerY = wasm_i32x4_splat(playerCharacters[selectedPC].y);
 	v128_t vecPull = wasm_i32x4_splat(1);
 	v128_t squareRadius = wasm_i32x4_splat(1000);
 	for (i32 i = 0; i < MAX_SIZE; i += 4)
@@ -1076,7 +1122,7 @@ void doFrame(f32 dt)
 	// clear framebuffer
 	// TODO: This doesn't use the new isometric coord system
 	clearFramebufferSIMD(0xff8956aa); // AABBBGGRR? is this some endian stuff?	
-	drawRectSIMD(-cameraX, -cameraY, mapWidth*logicalToScreenRatio, mapHeight*logicalToScreenRatio, 0xfffffffd);
+	drawRectSIMD(-cameraX, -cameraY, mapWidth*logicalToScreenRatio, mapHeight*logicalToScreenRatio, 0xffaaaaff);
 
 	static b32 debugShouldDrawOutlines = 0;
 	if (debugShouldDrawOutlines)
@@ -1146,15 +1192,20 @@ void doFrame(f32 dt)
 		);
 		// END DEBUG
 	}
-	Point playerScreenPos = pointToScreenPos( (Point){ player.x, player.y });
-	drawPlayer(playerScreenPos.x, playerScreenPos.y);
+	for (i32 i = 0; i < MAX_PLAYER_CHARACTERS; i++)
+	{
+		Point playerCharacterScreenPos = pointToScreenPos( (Point){ playerCharacters[i].x, playerCharacters[i].y });
+		Point playerCharacterTile = getTileCoords((Point) { playerCharacters[i].x, playerCharacters[i].y });
+		highlightTile(playerCharacterTile, 0xffaa00ff + (selectedPC == i) * 0xff00ff00);
+		drawPlayerCharacter(playerCharacterScreenPos.x, playerCharacterScreenPos.y, 0xff00ff00 + (selectedPC == i) * 0xff0000ff);
+	}
 	// DEBUG
 	i32 debugDeltaX = viewportWidth - 500;
 	i32 debugDeltaY = 300;
 	i32 scale = 32;
 	drawRectSIMD(
-		debugDeltaX + (player.x / scale),
-		debugDeltaY + (player.y / scale),
+		debugDeltaX + (playerCharacters[selectedPC].x / scale),
+		debugDeltaY + (playerCharacters[selectedPC].y / scale),
 		8,
 		8,
 		0xff000000
@@ -1203,8 +1254,8 @@ void doFrame(f32 dt)
 	renderText("map_height:", 1400, 50, 2, dbgFontColor);
 	renderString(23, 1570, 45, 4, dbgFontColor);
 
-	i32ToStr(player.x, strings[30]);
-	i32ToStr(player.y, strings[31]);
+	i32ToStr(playerCharacters[selectedPC].x, strings[30]);
+	i32ToStr(playerCharacters[selectedPC].y, strings[31]);
 	renderText("player.x:", 50, 400, 2, 0xff000000);
 	renderString(30, 270, 400, 2, 0xff000000);
 	renderText("player.y:", 50, 430, 2, 0xff000000);
@@ -1215,7 +1266,6 @@ void doFrame(f32 dt)
 	renderString(48, 270, 470, 2, 0xff000000);
 	renderText("playerTile.y:", 50, 500, 2, 0xff000000);
 	renderString(49, 270, 500, 2, 0xff000000);
-	highlightTile(playerTile, 0xffaa00ff);
 	renderText("No. Entities: ", 50, 550, 2, 0xff000000);
 	u32ToStr(MAX_SIZE, strings[32]);
 	renderString(32, 270, 550, 2, 0xff000000);
@@ -1234,18 +1284,9 @@ void doFrame(f32 dt)
 	renderString(42, 270, 660, 2, 0xff000000);
 	renderText("mouseOnMap.y:", 50, 690, 2, 0xff000000);
 	renderString(43, 270, 690, 2, 0xff000000);
-	renderText(shouldMove ? "ON THE MOVE" : "IDLE", 50, 730, 2, 0xff000000);
-	Point moveTargetTile = getTileCoords((Point) { moveTarget.x, moveTarget.y });
-	if (shouldMove) highlightTile(moveTargetTile, 0xff000000);
-
-	Point testTile = getTileCoords((Point) { entitiesData.x[0], entitiesData.y[0] });
-	highlightTile(testTile, 0xff0000ff);
-	i32ToStr(testTile.x, strings[50]);
-	i32ToStr(testTile.y, strings[51]);
-	renderText("testTile.x:", 50, 750, 2, 0xff000000);
-	renderString(50, 270, 750, 2, 0xff000000);
-	renderText("testTile.y:", 50, 780, 2, 0xff000000);
-	renderString(51, 270, 780, 2, 0xff000000);
+	//renderText(shouldMove ? "ON THE MOVE" : "IDLE", 50, 730, 2, 0xff000000);
+	//Point moveTargetTile = getTileCoords((Point) { moveTarget.x, moveTarget.y });
+	//if (shouldMove) highlightTile(moveTargetTile, 0xff000000);
 
 	Point mouseTile = getTileCoords(mouseOnMap);
 	highlightTile(mouseTile, 0xffad190f);

@@ -65,6 +65,18 @@ async function init() {
 		);
 	const oldInput = new Uint8Array(inputSize);
 
+	const inputData = {
+		keyboard: {
+			buttons: new Uint8Array(8),
+			shift: 0,
+			// ... other keyboard button properties
+		},
+		mouse: {
+			buttons: new Uint8Array(3),
+			// ... other mouse button properties
+		}
+	};
+
 	function updateKeyDownState(index) {
 		input[index*buttonStateSize] = 1;
 	}
@@ -95,7 +107,6 @@ async function init() {
 		{
             event.preventDefault();
         }
-		
 		switch (event.code) {
 			case ("ArrowLeft"): {
 				updateKeyDownState(0);
@@ -121,9 +132,39 @@ async function init() {
 			case ("Escape"): {
 				updateKeyDownState(7);
 			} break;
+			case ("Digit1"): {
+				updateKeyDownState(8)
+			} break;
+			case ("Digit2"): {
+				updateKeyDownState(9)
+			} break;
+			case ("Digit3"): {
+				updateKeyDownState(10)
+			} break;
+			case ("Digit4"): {
+				updateKeyDownState(11)
+			} break;
+			case ("Digit5"): {
+				updateKeyDownState(12)
+			} break;
+			case ("Digit6"): {
+				updateKeyDownState(13)
+			} break;
+			case ("Digit7"): {
+				updateKeyDownState(14)
+			} break;
+			case ("Digit8"): {
+				updateKeyDownState(15)
+			} break;
+			case ("Digit9"): {
+				updateKeyDownState(16)
+			} break;
+			case ("Digit0"): {
+				updateKeyDownState(17)
+			} break;
 			case ("ShiftRight"):
 			case ("ShiftLeft"): {
-				updateKeyDownState(8);
+				updateKeyDownState(18);
 			} break;
 		}
     });
@@ -166,9 +207,39 @@ async function init() {
 			case ("Escape"): {
 				updateKeyUpState(7);
 			} break;
+						case ("Digit1"): {
+				updateKeyUpState(8)
+			} break;
+			case ("Digit2"): {
+				updateKeyUpState(9)
+			} break;
+			case ("Digit3"): {
+				updateKeyUpState(10)
+			} break;
+			case ("Digit4"): {
+				updateKeyUpState(11)
+			} break;
+			case ("Digit5"): {
+				updateKeyUpState(12)
+			} break;
+			case ("Digit6"): {
+				updateKeyUpState(13)
+			} break;
+			case ("Digit7"): {
+				updateKeyUpState(14)
+			} break;
+			case ("Digit8"): {
+				updateKeyUpState(15)
+			} break;
+			case ("Digit9"): {
+				updateKeyUpState(16)
+			} break;
+			case ("Digit0"): {
+				updateKeyUpState(17)
+			} break;
 			case ("ShiftRight"):
 			case ("ShiftLeft"): {
-				updateKeyUpState(8);
+				updateKeyUpState(18);
 			} break;
 		}
     });
