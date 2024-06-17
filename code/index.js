@@ -57,36 +57,52 @@ async function init() {
     gameCanvas.style.height = Math.min(window.innerHeight, maxViewportHeight) + "px";
 
 	const inputAddress = fromC.getInputAddress();
-	const inputSize = fromC.getInputSize();
 	const buttonStateSize = fromC.getButtonStateSize();
-	const input = memoryView.subarray(
+	const inputSize = fromC.getInputSize();
+	const keyboardInputSize = fromC.getKeyboardInputSize();
+	const inputView = memoryView.subarray(
 		inputAddress, 
+		inputAddress + inputSize
+		);
+	const mouseInputView = memoryView.subarray(
+		inputAddress + keyboardInputSize, 
 		inputAddress + inputSize
 		);
 	const oldInput = new Uint8Array(inputSize);
 
-	const inputData = {
-		keyboard: {
-			buttons: new Uint8Array(8),
-			shift: 0,
-			// ... other keyboard button properties
-		},
-		mouse: {
-			buttons: new Uint8Array(3),
-			// ... other mouse button properties
-		}
+	const inputKeyToIndex = {
+		'ArrowLeft': 	0,
+		'ArrowUp': 		1,
+		'ArrowRight': 	2,
+		'ArrowDown': 	3,
+		'Space': 		4,
+		'Enter': 		5,
+		'Tab': 			6,
+		'Escape': 		7,
+		'Digit1': 		8,
+		'Digit2': 		9,
+		'Digit3': 		10,
+		'Digit4': 		11,
+		'Digit5': 		12,
+		'Digit6': 		13,
+		'Digit7': 		14,
+		'Digit8': 		15,
+		'Digit9': 		16,
+		'Digit0': 		17,
+		'ShiftRight': 	18,
+		'ShiftLeft': 	18,
 	};
 
 	function updateKeyDownState(index) {
-		input[index*buttonStateSize] = 1;
+		inputView[index*buttonStateSize] = 1;
 	}
 	function updateKeyUpState(index) {
-		input[index*buttonStateSize] = 0;
+		inputView[index*buttonStateSize] = 0;
 	}
 	function updateInputState() {
-		for (let index = 0; index < 8; index = index + 1) {
-			input[index*buttonStateSize + 1] = 
-				(!input[index*buttonStateSize + 1] && !oldInput[index*buttonStateSize] && input[index*buttonStateSize]) ? 1 : 0;
+		for (let index = 0; index < 18; index = index + 1) {
+			inputView[index*buttonStateSize + 1] = 
+				(!inputView[index*buttonStateSize + 1] && !oldInput[index*buttonStateSize] && inputView[index*buttonStateSize]) ? 1 : 0;
 		}
 	}
 
@@ -95,162 +111,48 @@ async function init() {
 		console.log(!document.hidden ? 'App has just gained focus' : 'App has just lost focus');
 	});
     document.addEventListener('keydown', event => {
-		// TODO: keyCode is deprecated, if anything, you should
-		// unfortunately use code
-	   	if (event.key === 'Tab' || 
-			event.key === 'ArrowUp' || 
-			event.key === 'ArrowDown' || 
-			event.key === 'ArrowLeft' || 
-			event.key === 'ArrowRight' ||
-			event.key === 'Space')
+	   	if (event.code === 'Tab' || 
+			event.code === 'ArrowUp' || 
+			event.code === 'ArrowDown' || 
+			event.code === 'ArrowLeft' || 
+			event.code === 'ArrowRight' ||
+			event.code === 'Space')
 			// TODO: any other we definitely want to ignore?
 		{
             event.preventDefault();
         }
-		switch (event.code) {
-			case ("ArrowLeft"): {
-				updateKeyDownState(0);
-			} break;
-			case ("ArrowUp"): {
-				updateKeyDownState(1);
-			} break;
-			case ("ArrowRight"): {
-				updateKeyDownState(2);
-			} break;
-			case ("ArrowDown"): {
-				updateKeyDownState(3);
-			} break;
-			case ("Space"): {
-				updateKeyDownState(4);
-			} break;
-			case ("Enter"): {
-				updateKeyDownState(5);
-			} break;
-			case ("Tab"): {
-				updateKeyDownState(6);
-			} break;
-			case ("Escape"): {
-				updateKeyDownState(7);
-			} break;
-			case ("Digit1"): {
-				updateKeyDownState(8)
-			} break;
-			case ("Digit2"): {
-				updateKeyDownState(9)
-			} break;
-			case ("Digit3"): {
-				updateKeyDownState(10)
-			} break;
-			case ("Digit4"): {
-				updateKeyDownState(11)
-			} break;
-			case ("Digit5"): {
-				updateKeyDownState(12)
-			} break;
-			case ("Digit6"): {
-				updateKeyDownState(13)
-			} break;
-			case ("Digit7"): {
-				updateKeyDownState(14)
-			} break;
-			case ("Digit8"): {
-				updateKeyDownState(15)
-			} break;
-			case ("Digit9"): {
-				updateKeyDownState(16)
-			} break;
-			case ("Digit0"): {
-				updateKeyDownState(17)
-			} break;
-			case ("ShiftRight"):
-			case ("ShiftLeft"): {
-				updateKeyDownState(18);
-			} break;
-		}
+		updateKeyDownState(inputKeyToIndex[event.code]);
     });
 	document.addEventListener('keyup', event => {
-		// TODO: keyCode is deprecated, if anything, you should
-		// unfortunately use code
-	   	if (event.key === 'Tab' || 
-			event.key === 'ArrowUp' || 
-			event.key === 'ArrowDown' || 
-			event.key === 'ArrowLeft' || 
-			event.key === 'ArrowRight' ||
-			event.key === 'Space')
+	   	if (event.code === 'Tab' || 
+			event.code === 'ArrowUp' || 
+			event.code === 'ArrowDown' || 
+			event.code === 'ArrowLeft' || 
+			event.code === 'ArrowRight' ||
+			event.code === 'Space')
 			// TODO: any other we definitely want to ignore?
 		{
             event.preventDefault();
         }
-		
-		switch (event.code) {
-			case ("ArrowLeft"): {
-				updateKeyUpState(0);
-			} break;
-			case ("ArrowUp"): {
-				updateKeyUpState(1);
-			} break;
-			case ("ArrowRight"): {
-				updateKeyUpState(2);
-			} break;
-			case ("ArrowDown"): {
-				updateKeyUpState(3);
-			} break;
-			case ("Space"): {
-				updateKeyUpState(4);
-			} break;
-			case ("Enter"): {
-				updateKeyUpState(5);
-			} break;
-			case ("Tab"): {
-				updateKeyUpState(6);
-			} break;
-			case ("Escape"): {
-				updateKeyUpState(7);
-			} break;
-						case ("Digit1"): {
-				updateKeyUpState(8)
-			} break;
-			case ("Digit2"): {
-				updateKeyUpState(9)
-			} break;
-			case ("Digit3"): {
-				updateKeyUpState(10)
-			} break;
-			case ("Digit4"): {
-				updateKeyUpState(11)
-			} break;
-			case ("Digit5"): {
-				updateKeyUpState(12)
-			} break;
-			case ("Digit6"): {
-				updateKeyUpState(13)
-			} break;
-			case ("Digit7"): {
-				updateKeyUpState(14)
-			} break;
-			case ("Digit8"): {
-				updateKeyUpState(15)
-			} break;
-			case ("Digit9"): {
-				updateKeyUpState(16)
-			} break;
-			case ("Digit0"): {
-				updateKeyUpState(17)
-			} break;
-			case ("ShiftRight"):
-			case ("ShiftLeft"): {
-				updateKeyUpState(18);
-			} break;
-		}
+		updateKeyUpState(inputKeyToIndex[event.code]);
     });
+
+	function updateMouseInputState() {
+		for (let index = 0; index < 3; index = index + 1) {
+			mouseInputView[index*buttonStateSize + 1] = 
+					(!mouseInputView[index*buttonStateSize + 1] && !oldInput[index*buttonStateSize] && mouseInputView[index*buttonStateSize]) ? 1 : 0;
+		}
+	}
+
     gameCanvas.addEventListener('pointermove', e => {
         fromC.mouseMove((e.offsetX * ratio), (e.offsetY * ratio));
     });
     gameCanvas.addEventListener('pointerdown', e => {
-        fromC.mouseDown();
+		// button: 0 - lmb, 1 - mmb, 2 - rmb
+		mouseInputView[e.button*buttonStateSize] = 1;
     });
 	gameCanvas.addEventListener('pointerup', e => {
-        fromC.mouseUp();
+		mouseInputView[e.button*buttonStateSize] = 0;
     });
 	gameCanvas.addEventListener('wheel', e => {
 		e.preventDefault();
@@ -311,8 +213,9 @@ async function init() {
         start = timestamp;
 
 		updateInputState();
-		memoryView.set(input, inputAddress);
-		oldInput.set(input);
+		updateMouseInputState();
+		memoryView.set(inputView, inputAddress);
+		oldInput.set(inputView);
 		fromC.doFrame(dt);
 		
 		const frameData = memoryView.subarray(

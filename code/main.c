@@ -199,8 +199,8 @@ typedef struct MouseInput
 		struct
 		{
 			ButtonState leftMB;
-			ButtonState rightMB;
 			ButtonState middleMB;
+			ButtonState rightMB;
 		};
 	};
 } MouseInput;
@@ -209,7 +209,7 @@ typedef struct KeyboardInput
 {
 	union
 	{
-		ButtonState buttons[8];
+		ButtonState buttons[19];
 		struct
 		{
 			ButtonState arrowLeft;
@@ -230,9 +230,9 @@ typedef struct KeyboardInput
 			ButtonState digit8;
 			ButtonState digit9;
 			ButtonState digit0;
+			ButtonState shift;
 		};
 	};
-	ButtonState shift;
 } KeyboardInput;
 
 typedef struct Input
@@ -589,7 +589,7 @@ static void UI_init()
 
 static void UI_cleanup()
 {
-	if (mouseLeftClicked == 0)
+	if (frameInput.mouse.leftMB.justPressed == 0)
 	{
 		activeItem = 0;
 	}
@@ -648,6 +648,11 @@ u32 getInputSize()
 	return sizeof(frameInput);
 }
 
+u32 getKeyboardInputSize()
+{
+	return sizeof(KeyboardInput);
+}
+
 u32 getButtonStateSize()
 {
 	return sizeof(ButtonState);
@@ -657,16 +662,6 @@ void mouseMove(i32 x, i32 y)
 {
 	mouseX = x;
 	mouseY = y;
-}
-
-void mouseDown()
-{
-	mouseLeftClicked = 1;
-}
-
-void mouseUp()
-{
-	mouseLeftClicked = 0;
 }
 
 void mouseScrollWheelUp()
@@ -722,7 +717,7 @@ static byte UI_button(i32 id, char *label, i32 x, i32 y)
 	if (mouseInRect(x, y, buttonWidth, buttonHeight))
 	{
 		hotItem = id;
-		if (activeItem == 0 && mouseLeftClicked)
+		if (activeItem == 0 && frameInput.mouse.leftMB.justPressed) // mouseLeftClicked)
 			activeItem = id;
 	}
 
@@ -762,7 +757,7 @@ static byte UI_button(i32 id, char *label, i32 x, i32 y)
 	}
 	lastItem = id;
 
-	wasPressed = wasPressed || (mouseLeftClicked == 0 && hotItem == id && activeItem == id);
+	wasPressed = wasPressed || (frameInput.mouse.leftMB.justPressed == 0 && hotItem == id && activeItem == id);
 	return wasPressed;
 }
 
@@ -1057,16 +1052,16 @@ void doFrame(f32 dt)
 
 	// TODO: check this out, doesn't work
 	//if (frameInput.mouse.leftMB.justPressed)
-	if (mouseLeftClicked)
+	if (frameInput.mouse.leftMB.justPressed)
 	{
 		shouldMove[selectedPC] = true;
 		Point mouseScreenPosition = { mouseX, mouseY };
 		moveTargets[selectedPC] = screenToMapPosition(mouseScreenPosition);
 	}
-//	if (mouseRightClicked)
-//	{
-//		shouldMove[selectedPC] = false;
-//	}
+	if (frameInput.mouse.rightMB.justPressed)
+	{
+		shouldMove[selectedPC] = false;
+	}
 	for (i32 i = 0; i < MAX_PLAYER_CHARACTERS; i++)
 	{
 		i32 deltaX = shouldMove[i] * ((moveTargets[i].x > playerCharacters[i].x) - (moveTargets[i].x < playerCharacters[i].x)) * playerSpeed * dt;
@@ -1198,6 +1193,10 @@ void doFrame(f32 dt)
 		Point playerCharacterTile = getTileCoords((Point) { playerCharacters[i].x, playerCharacters[i].y });
 		highlightTile(playerCharacterTile, 0xffaa00ff + (selectedPC == i) * 0xff00ff00);
 		drawPlayerCharacter(playerCharacterScreenPos.x, playerCharacterScreenPos.y, 0xff00ff00 + (selectedPC == i) * 0xff0000ff);
+		if (shouldMove[i])
+		{
+			highlightTile(getTileCoords(moveTargets[i]), 0xff00ffff);
+		}
 	}
 	// DEBUG
 	i32 debugDeltaX = viewportWidth - 500;
