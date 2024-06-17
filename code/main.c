@@ -1196,19 +1196,19 @@ void doFrame(f32 dt)
 		{
 			highlightTile(getTileCoords(moveTargets[i]), 0xff00ffff);
 		}
+		// DEBUG
+		i32 debugDeltaX = viewportWidth - 500;
+		i32 debugDeltaY = 300;
+		i32 scale = 32;
+		drawRectSIMD(
+			debugDeltaX + (playerCharacters[i].x / scale),
+			debugDeltaY + (playerCharacters[i].y / scale),
+			8,
+			8,
+			0xff000000 + (selectedPC == i) * 0xff0000ff
+		);
+		// END DEBUG
 	}
-	// DEBUG
-	i32 debugDeltaX = viewportWidth - 500;
-	i32 debugDeltaY = 300;
-	i32 scale = 32;
-	drawRectSIMD(
-		debugDeltaX + (playerCharacters[selectedPC].x / scale),
-		debugDeltaY + (playerCharacters[selectedPC].y / scale),
-		8,
-		8,
-		0xff000000
-	);
-	// END DEBUG
 
 	// UI
 	static u32 test = 0xff0000ff;
