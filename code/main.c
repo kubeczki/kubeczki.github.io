@@ -785,8 +785,8 @@ static i32 tileEdgeInUnits = 128; 			// NOTE: this represents how many logical u
 static i32 logicalToScreenRatio = 4; 		// NOTE: this represents the ratio of unitsPerTileEdge/pixelsToDisplayTileEdge
 											// NOTE: not shown here, but hardcoded as '2' in a lot of places is our isometric angle - horizontal is 2 times longer than vertical
 
-#define NUM_TILES_HOZ 50
-#define NUM_TILES_VER 15
+#define NUM_TILES_HOZ 128
+#define NUM_TILES_VER 64
 
 typedef enum TileStatus
 {
@@ -962,9 +962,6 @@ static b32 shouldMove[MAX_PLAYER_CHARACTERS] = {};
 
 void init()
 {
-//	mapWidth = ((f32)(NUM_TILES_HOZ + NUM_TILES_VER) / 2.0f) * tileEdgeInUnits * 2;
-//	mapHeight = ((f32)(NUM_TILES_HOZ + NUM_TILES_VER) / 2.0f) * tileEdgeInUnits;
-
 	for (i32 i = 0; i < NUM_TILES_HOZ*NUM_TILES_VER; i++)
 	{
 		mapTiles[i] = ((i % 17) == 0) ? Blocked : 0;
@@ -979,14 +976,14 @@ void init()
 	playerCharacters[3] = (Character){ .active = 1, .coolness = 9999, .x = -300, .y = -300 };
 	playerCharacters[4] = (Character){ .active = 1, .coolness = 9999, .x = 0, .y = 3000 };
 	
-	//playerId = insert(player);
+	i32 tileIndex = 0;
 	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
-		entitiesData.x[i] = (i % NUM_TILES_HOZ) * tileEdgeInUnits + (tileEdgeInUnits / 2);
-		entitiesData.y[i] = (i / NUM_TILES_HOZ) * tileEdgeInUnits + (tileEdgeInUnits / 2);
+		while (((tileIndex % NUM_TILES_HOZ) < NUM_TILES_HOZ) && ((tileIndex / NUM_TILES_HOZ) < NUM_TILES_VER) && (mapTiles[tileIndex] == Blocked)) tileIndex++;
+		entitiesData.x[i] = (tileIndex % NUM_TILES_HOZ) * tileEdgeInUnits + (tileEdgeInUnits / 2);
+		entitiesData.y[i] = (tileIndex / NUM_TILES_HOZ) * tileEdgeInUnits + (tileEdgeInUnits / 2);
+		tileIndex++;
 	}
-//	entitiesData.x[0] = 64;
-//	entitiesData.y[0] = 64;
 }
 
 static u32 FPSBuffer[1024];
@@ -1072,14 +1069,13 @@ void doFrame(f32 dt)
 		}
 	}
 
-	// TODO: check this out, doesn't work
+	Point mouseScreenPosition = { mouseX, mouseY };
+	Point mouseMapPosition = screenToMapPosition(mouseScreenPosition);
+	Point targetTileCoords = getTileCoords(mouseMapPosition);
+	u32 targetTileIndex = mapTiles[targetTileCoords.x + (targetTileCoords.y * NUM_TILES_HOZ)];
+	b32 isTargetTileBlocked = (targetTileCoords.x < NUM_TILES_HOZ) && (targetTileCoords.y < NUM_TILES_VER) && (targetTileIndex == Blocked);
 	if (frameInput.mouse.leftMB.justPressed)
 	{
-		Point mouseScreenPosition = { mouseX, mouseY };
-		Point mouseMapPosition = screenToMapPosition(mouseScreenPosition);
-		Point targetTileCoords = getTileCoords(mouseMapPosition); // TODO: How 'bout I go mgr route and make tiles a u32 array? Flags anyone? WHICH SOLUTION IS THE BEST? THAT'S AN ENGINEERS JOB TO KNOW AND CHOOSE WELL
-		u32 targetTile = mapTiles[targetTileCoords.x + (targetTileCoords.y * NUM_TILES_HOZ)];
-		b32 isTargetTileBlocked = (targetTile == Blocked);
 		shouldMove[selectedPC] = !isTargetTileBlocked;
 		moveTargets[selectedPC] = screenToMapPosition(mouseScreenPosition);
 	}
@@ -1163,7 +1159,7 @@ void doFrame(f32 dt)
 	// RENDER
 	Point mouseOnMap = screenToMapPosition((Point){ mouseX, mouseY });
 	Point mouseTile = getTileCoords(mouseOnMap);
-	highlightTile(mouseTile, 0xffad190f);
+	highlightTile(mouseTile, isTargetTileBlocked ? 0xff0000ff : 0xffad190f);
 	i32 characterWidth = 100;
 	i32 screenCharacterWidth = characterWidth / logicalToScreenRatio;
 	v128_t halfWidth = wasm_i32x4_splat(screenCharacterWidth / 2);
@@ -1266,10 +1262,7 @@ void doFrame(f32 dt)
 
 	// DEBUGGING
 	drawRect(0, 0, viewportWidth, 120, 0xff0a3f3f);
-
 	u32 dbgFontColor = 0xffcccccc;
-
-
 	// TODO:
 	// I know that it doesn't seem like it makes sense, but maybe try inlining the below?
 	// Perhaps you'll notice a pattern that allows to batch some stuff?
@@ -1280,14 +1273,6 @@ void doFrame(f32 dt)
 	u32ToStr(viewportHeight, strings[21]);
 	renderText("vwprt_height:", 1050, 50, 2, dbgFontColor);
 	renderString(21, 1240, 45, 4, dbgFontColor);
-
-//	u32ToStr(mapWidth, strings[22]);
-//	renderText("map_width:", 1400, 10, 2, dbgFontColor);
-//	renderString(22, 1570, 5, 4, dbgFontColor);
-//
-//	u32ToStr(mapHeight, strings[23]);
-//	renderText("map_height:", 1400, 50, 2, dbgFontColor);
-//	renderString(23, 1570, 45, 4, dbgFontColor);
 
 	i32ToStr(playerCharacters[selectedPC].x, strings[30]);
 	i32ToStr(playerCharacters[selectedPC].y, strings[31]);
@@ -1369,9 +1354,6 @@ void doFrame(f32 dt)
 	u32ToStr(100*calculateUsedMemory()/getMemoryCapacity(), strings[25]);
 	renderText("Taken(%):", 1750, 80, 2, dbgFontColor);
 	renderString(25, 2000, 77, 4, dbgFontColor);
-
-	Point zero = pointToScreenPos((Point) { 0, 0 });
-	drawRect(zero.x, zero.y, 20, 20, 0xff0000ff);
 
 	// imgui clear
 	UI_cleanup();
