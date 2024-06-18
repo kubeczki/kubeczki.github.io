@@ -355,6 +355,15 @@ void drawLine(i32 x1, i32 y1, i32 x2, i32 y2, u32 color)
 	}
 }
 
+void drawLineHoz(i32 x1, i32 y1, i32 x2, i32 y2, u32 color)
+{
+	y1 = Clamp(y1, 0, viewportHeight);
+	for (i32 i = ClampBottom(x1, 0); i < ClampTop(x2, viewportWidth); i++)
+	{
+		framebuffer[y1*viewportWidth + i] = color;
+	}
+}
+
 void putPixel(i32 x, i32 y, u32 color)
 {
 	x = Clamp(x, 0, viewportWidth);
@@ -776,11 +785,16 @@ static i32 tileEdgeInUnits = 128; 			// NOTE: this represents how many logical u
 static i32 logicalToScreenRatio = 4; 		// NOTE: this represents the ratio of unitsPerTileEdge/pixelsToDisplayTileEdge
 											// NOTE: not shown here, but hardcoded as '2' in a lot of places is our isometric angle - horizontal is 2 times longer than vertical
 
-static i32 numTilesHorizontally = 600;
-static i32 numTilesVertically = 300;
+#define NUM_TILES_HOZ 50
+#define NUM_TILES_VER 15
 
-static i32 mapWidth;
-static i32 mapHeight;
+typedef enum TileStatus
+{
+	Blocked = (1 << 0),
+	Occupied = (1 << 1),
+} TileStatus;
+
+static u32 mapTiles[NUM_TILES_HOZ*NUM_TILES_VER];
 
 static i32 cameraX = 0;
 static i32 cameraY = 0;
@@ -831,19 +845,6 @@ typedef struct Point
 	i32 y;
 } Point;
 
-typedef enum TileStatus
-{
-	Blocked = (1 << 0),
-	Occupied = (1 << 1),
-} TileStatus;
-
-typedef struct Tile
-{
-	i32 x;
-	i32 y;
-	TileStatus status; // Do I really need this? Am I keeping an array of all tiles?
-} Tile;
-
 static inline Point pointToScreenPos(Point point)
 {
 	return (Point){
@@ -884,21 +885,17 @@ static v128_t pointToScreenPosYVec(v128_t vecX, v128_t vecY)
 	return wasm_i32x4_sub(vecTemp, vecCameraY);
 }
 
-// TODO: rn I'm addressing each tile by a pair (x, y). But in the current approach I could make it just one number and even have an array?
-// But do note that x and y for indexing is easier when you need to get a neighbour or something, so verbose has its pros
 static inline Point getTileCoords(Point mapCoords)
 {
 	return (Point){
-		.x = (mapCoords.x / tileEdgeInUnits) - (mapCoords.x <= 0),
-		.y = (mapCoords.y / tileEdgeInUnits) - (mapCoords.y <= 0)
+		.x = (mapCoords.x / tileEdgeInUnits) - (mapCoords.x < 0),
+		.y = (mapCoords.y / tileEdgeInUnits) - (mapCoords.y < 0)
 	};
 }
 
 static void highlightTile(Point tileCoords, u32 color)
 {
-	// tile x and y to map x and y
 	Point tileTop = { tileCoords.x * tileEdgeInUnits, tileCoords.y * tileEdgeInUnits };
-	// map x and y to screen x and y
 	Point tileTopOnScreen = pointToScreenPos(tileTop);
 
 	i32 verPixelsPerTile = tileEdgeInUnits / logicalToScreenRatio;
@@ -907,24 +904,42 @@ static void highlightTile(Point tileCoords, u32 color)
 	i32 endY = startY + 2 * verPixelsPerTile;
 	for (i32 i = 0; i < 2 * verPixelsPerTile; i += 2)
 	{
+		putPixel(tileTopOnScreen.x - i - 1, startY + counterY, color);
+		putPixel(tileTopOnScreen.x - i, startY + counterY, color);
 		putPixel(tileTopOnScreen.x + i, startY + counterY, color);
 		putPixel(tileTopOnScreen.x + i + 1, startY + counterY, color);
-		putPixel(tileTopOnScreen.x - i, startY + counterY, color);
-		putPixel(tileTopOnScreen.x - i - 1, startY + counterY, color);
 
+		putPixel(tileTopOnScreen.x - i - 1, endY - counterY, color);
+		putPixel(tileTopOnScreen.x - i, endY - counterY, color);
 		putPixel(tileTopOnScreen.x + i, endY - counterY, color);
 		putPixel(tileTopOnScreen.x + i + 1, endY - counterY, color);
-		putPixel(tileTopOnScreen.x - i, endY - counterY, color);
-		putPixel(tileTopOnScreen.x - i - 1, endY - counterY, color);
 		counterY++;
 	}
 }
 
+static void fillTile(Point tileCoords, u32 color)
+{
+	Point tileTop = { tileCoords.x * tileEdgeInUnits, tileCoords.y * tileEdgeInUnits };
+	Point tileTopOnScreen = pointToScreenPos(tileTop);
+
+	i32 verPixelsPerTile = tileEdgeInUnits / logicalToScreenRatio;
+	i32 counterY = 0;
+	i32 startY = tileTopOnScreen.y;
+	i32 endY = startY + 2 * verPixelsPerTile;
+	for (i32 i = 0; i < 2 * verPixelsPerTile; i += 2)
+	{
+		drawLineHoz(tileTopOnScreen.x - i - 1, startY + counterY, tileTopOnScreen.x + i + 1, startY + counterY, color);
+		drawLineHoz(tileTopOnScreen.x - i - 1, endY - counterY, tileTopOnScreen.x + i + 1, startY + counterY, color);
+		counterY++;
+	}
+	drawLineHoz(tileTopOnScreen.x - 2 * verPixelsPerTile - 1, startY + verPixelsPerTile, tileTopOnScreen.x + 2 * verPixelsPerTile + 1, startY + verPixelsPerTile, color);
+}
+
 static void drawTileGridOverlay()
 {
-	for (i32 i = 0; i < numTilesVertically; i++)
+	for (i32 i = 0; i < NUM_TILES_VER; i++)
 	{
-		for (i32 j = 0; j < numTilesHorizontally; j++)
+		for (i32 j = 0; j < NUM_TILES_HOZ; j++)
 		{
 			highlightTile((Point) { j, i }, 0xffaaaaff);
 		}
@@ -947,13 +962,18 @@ static b32 shouldMove[MAX_PLAYER_CHARACTERS] = {};
 
 void init()
 {
-	mapWidth = ((f32)(numTilesHorizontally + numTilesVertically) / 2.0f) * tileEdgeInUnits * 2;
-	mapHeight = ((f32)(numTilesHorizontally + numTilesVertically) / 2.0f) * tileEdgeInUnits;
+//	mapWidth = ((f32)(NUM_TILES_HOZ + NUM_TILES_VER) / 2.0f) * tileEdgeInUnits * 2;
+//	mapHeight = ((f32)(NUM_TILES_HOZ + NUM_TILES_VER) / 2.0f) * tileEdgeInUnits;
+
+	for (i32 i = 0; i < NUM_TILES_HOZ*NUM_TILES_VER; i++)
+	{
+		mapTiles[i] = ((i % 17) == 0) ? Blocked : 0;
+	}
 
 	decompressFontFromBytes();
 	clearFramebuffer(0xff0000ff);
 
-	playerCharacters[0] = (Character){ .active = 1, .coolness = 9999, .x = 0, .y = 0 };
+	playerCharacters[0] = (Character){ .active = 1, .coolness = 9999, .x = 24, .y = 24 };
 	playerCharacters[1] = (Character){ .active = 1, .coolness = 9999, .x = 1000, .y = 500 };
 	playerCharacters[2] = (Character){ .active = 1, .coolness = 9999, .x = 500, .y = 1000 };
 	playerCharacters[3] = (Character){ .active = 1, .coolness = 9999, .x = -300, .y = -300 };
@@ -962,9 +982,11 @@ void init()
 	//playerId = insert(player);
 	for (i32 i = 0; i < MAX_SIZE; i++)
 	{
-		entitiesData.x[i] = (i % numTilesHorizontally) * tileEdgeInUnits + (tileEdgeInUnits/2);
-		entitiesData.y[i] = (i / numTilesHorizontally) * tileEdgeInUnits - (tileEdgeInUnits/2);
+		entitiesData.x[i] = (i % NUM_TILES_HOZ) * tileEdgeInUnits + (tileEdgeInUnits / 2);
+		entitiesData.y[i] = (i / NUM_TILES_HOZ) * tileEdgeInUnits + (tileEdgeInUnits / 2);
 	}
+//	entitiesData.x[0] = 64;
+//	entitiesData.y[0] = 64;
 }
 
 static u32 FPSBuffer[1024];
@@ -1053,8 +1075,12 @@ void doFrame(f32 dt)
 	// TODO: check this out, doesn't work
 	if (frameInput.mouse.leftMB.justPressed)
 	{
-		shouldMove[selectedPC] = true;
 		Point mouseScreenPosition = { mouseX, mouseY };
+		Point mouseMapPosition = screenToMapPosition(mouseScreenPosition);
+		Point targetTileCoords = getTileCoords(mouseMapPosition); // TODO: How 'bout I go mgr route and make tiles a u32 array? Flags anyone? WHICH SOLUTION IS THE BEST? THAT'S AN ENGINEERS JOB TO KNOW AND CHOOSE WELL
+		u32 targetTile = mapTiles[targetTileCoords.x + (targetTileCoords.y * NUM_TILES_HOZ)];
+		b32 isTargetTileBlocked = (targetTile == Blocked);
+		shouldMove[selectedPC] = !isTargetTileBlocked;
 		moveTargets[selectedPC] = screenToMapPosition(mouseScreenPosition);
 	}
 	if (frameInput.mouse.rightMB.justPressed)
@@ -1116,7 +1142,15 @@ void doFrame(f32 dt)
 	// clear framebuffer
 	// TODO: This doesn't use the new isometric coord system
 	clearFramebufferSIMD(0xff8956aa); // AABBBGGRR? is this some endian stuff?	
-	drawRectSIMD(-cameraX, -cameraY, mapWidth*logicalToScreenRatio, mapHeight*logicalToScreenRatio, 0xffaaaaff);
+	for (i32 i = 0; i < NUM_TILES_HOZ*NUM_TILES_VER; i++)
+	{
+		i32 x = i % NUM_TILES_HOZ;
+		i32 y = i / NUM_TILES_HOZ;
+		if (mapTiles[i] == Blocked)
+		{
+			fillTile((Point) { x, y }, 0xffaa4422);
+		}
+	}
 
 	static b32 debugShouldDrawOutlines = 0;
 	if (debugShouldDrawOutlines)
@@ -1127,6 +1161,9 @@ void doFrame(f32 dt)
 	}
 
 	// RENDER
+	Point mouseOnMap = screenToMapPosition((Point){ mouseX, mouseY });
+	Point mouseTile = getTileCoords(mouseOnMap);
+	highlightTile(mouseTile, 0xffad190f);
 	i32 characterWidth = 100;
 	i32 screenCharacterWidth = characterWidth / logicalToScreenRatio;
 	v128_t halfWidth = wasm_i32x4_splat(screenCharacterWidth / 2);
@@ -1244,13 +1281,13 @@ void doFrame(f32 dt)
 	renderText("vwprt_height:", 1050, 50, 2, dbgFontColor);
 	renderString(21, 1240, 45, 4, dbgFontColor);
 
-	u32ToStr(mapWidth, strings[22]);
-	renderText("map_width:", 1400, 10, 2, dbgFontColor);
-	renderString(22, 1570, 5, 4, dbgFontColor);
-
-	u32ToStr(mapHeight, strings[23]);
-	renderText("map_height:", 1400, 50, 2, dbgFontColor);
-	renderString(23, 1570, 45, 4, dbgFontColor);
+//	u32ToStr(mapWidth, strings[22]);
+//	renderText("map_width:", 1400, 10, 2, dbgFontColor);
+//	renderString(22, 1570, 5, 4, dbgFontColor);
+//
+//	u32ToStr(mapHeight, strings[23]);
+//	renderText("map_height:", 1400, 50, 2, dbgFontColor);
+//	renderString(23, 1570, 45, 4, dbgFontColor);
 
 	i32ToStr(playerCharacters[selectedPC].x, strings[30]);
 	i32ToStr(playerCharacters[selectedPC].y, strings[31]);
@@ -1275,7 +1312,6 @@ void doFrame(f32 dt)
 	renderText("mouse.y:", 50, 620, 2, 0xff000000);
 	renderString(41, 270, 620, 2, 0xff000000);
 
-	Point mouseOnMap = screenToMapPosition((Point){ mouseX, mouseY });
 	i32ToStr(mouseOnMap.x, strings[42]);
 	i32ToStr(mouseOnMap.y, strings[43]);
 	renderText("mouseOnMap.x:", 50, 660, 2, 0xff000000);
@@ -1285,9 +1321,6 @@ void doFrame(f32 dt)
 	//renderText(shouldMove ? "ON THE MOVE" : "IDLE", 50, 730, 2, 0xff000000);
 	//Point moveTargetTile = getTileCoords((Point) { moveTarget.x, moveTarget.y });
 	//if (shouldMove) highlightTile(moveTargetTile, 0xff000000);
-
-	Point mouseTile = getTileCoords(mouseOnMap);
-	highlightTile(mouseTile, 0xffad190f);
 
 	i32 graphStartX = 10;
 	i32 graphBaseline = 65;
@@ -1336,6 +1369,9 @@ void doFrame(f32 dt)
 	u32ToStr(100*calculateUsedMemory()/getMemoryCapacity(), strings[25]);
 	renderText("Taken(%):", 1750, 80, 2, dbgFontColor);
 	renderString(25, 2000, 77, 4, dbgFontColor);
+
+	Point zero = pointToScreenPos((Point) { 0, 0 });
+	drawRect(zero.x, zero.y, 20, 20, 0xff0000ff);
 
 	// imgui clear
 	UI_cleanup();
