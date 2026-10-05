@@ -15,74 +15,93 @@
       --wine: #8d2e2c;
       --leaf: #596649;
       --butter: #e6c977;
-      --hairline: 1px solid #292b2240;
-      font-family: Georgia, "Times New Roman", serif;
+      --hotel: #dfd6c5;
+      --rule: #292b2226;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-family: var(--serif);
       background: var(--linen);
       color: var(--ink);
     }
 
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    body { margin: 0; overflow-x: hidden; }
-    img { display: block; width: 100%; }
+    body {
+      margin: 0;
+      overflow-x: hidden;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+    img { display: block; width: 100%; height: auto; }
     .wrap { width: min(100% - 2.5rem, 70rem); margin-inline: auto; }
+
+    /* Eyebrow label used above section headings */
+    .audience {
+      display: block;
+      margin-bottom: 1.1rem;
+      color: var(--wine);
+      font: 600 .7rem/1 var(--sans);
+      letter-spacing: .26em;
+      text-transform: uppercase;
+    }
 
     .hero {
       min-height: 100svh;
-      padding: 1.2rem 0 3.5rem;
+      padding: 1.4rem 0 4rem;
       background: var(--linen);
     }
 
     .topline {
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
-      gap: 1rem;
-      padding-bottom: .8rem;
-      border-bottom: var(--hairline);
-      font: .72rem/1.3 system-ui, sans-serif;
-      letter-spacing: .08em;
+      gap: .35rem 1rem;
+      padding-bottom: .9rem;
+      border-bottom: 1px solid var(--rule);
+      color: #292b22b3;
+      font: 600 .66rem/1.25 var(--sans);
+      letter-spacing: .16em;
       text-transform: uppercase;
     }
 
-    .hero-grid { display: grid; gap: 2.5rem; padding-top: clamp(3rem, 9vw, 7rem); }
+    @media (max-width: 23.75rem) {
+      .topline { font-size: .6rem; letter-spacing: .1em; }
+    }
+
+    .hero-grid { display: grid; gap: 2.75rem; padding-top: clamp(3rem, 9vw, 7rem); }
     .hero-copy { position: relative; z-index: 1; }
 
     .save {
-      margin: 0 0 1.25rem;
+      margin: 0 0 1.5rem;
       color: var(--wine);
-      font-size: clamp(1.25rem, 5vw, 2rem);
-      font-style: italic;
-      font-weight: 400;
+      font: italic 400 clamp(1.15rem, 3.5vw, 1.6rem)/1 var(--serif);
     }
 
     h1 {
       max-width: 7ch;
       margin: 0;
-      font-size: clamp(4.2rem, 20vw, 10rem);
+      font-size: clamp(4rem, 19vw, 9.5rem);
       font-weight: 400;
       letter-spacing: -.07em;
-      line-height: .76;
+      line-height: .78;
     }
 
     h1 span { display: block; }
     h1 .month { margin-left: .18em; color: var(--wine); font-style: italic; }
-    h1 .year { margin: .18em 0 0 .72em; font-size: .57em; letter-spacing: -.03em; }
+    h1 .year { margin: .2em 0 0 .72em; font-size: .55em; letter-spacing: -.03em; }
 
     .hero-note {
       max-width: 25rem;
       margin: 2.5rem 0 0;
-      font-size: clamp(1.15rem, 4vw, 1.6rem);
-      line-height: 1.4;
+      font-size: clamp(1.1rem, 3.6vw, 1.5rem);
+      line-height: 1.45;
     }
 
-    .hero-photo {
-      position: relative;
-      margin: 0;
-    }
+    .hero-photo { position: relative; margin: 0; isolation: isolate; }
 
     .hero-photo::before {
       position: absolute;
-      inset: -1rem 1.5rem 1rem -1rem;
+      inset: 1.1rem -1.1rem -1.1rem 1.1rem;
       z-index: -1;
       background: var(--butter);
       content: "";
@@ -91,20 +110,19 @@
     .hero-photo img {
       aspect-ratio: 4 / 3;
       object-fit: cover;
-      object-position: 50% 65%;
+      object-position: 50% 62%;
     }
 
     section { padding: clamp(4.5rem, 11vw, 8rem) 0; }
 
     .invitation {
-      padding-block: clamp(1rem, 2.5vw, 2rem);
+      position: relative;
+      padding-block: clamp(1rem, 2.5vw, 1.75rem);
       overflow: hidden;
       background: var(--leaf);
     }
 
-    .halftone-grid {
-      width: 100%;
-    }
+    .halftone-grid { position: relative; width: 100%; }
 
     .halftone {
       width: 100%;
@@ -116,93 +134,121 @@
     .halftone img {
       height: clamp(13rem, 26vw, 24rem);
       object-fit: cover;
-      object-position: 50% 52%;
-      filter: grayscale(1) contrast(2.8) brightness(.52);
+      object-position: 50% 45%;
+      filter: grayscale(1) contrast(1.35) brightness(1.05);
       mix-blend-mode: multiply;
       -webkit-mask: radial-gradient(circle, #000 2.2px, transparent 2.45px) 0 0 / 6px 6px;
       mask: radial-gradient(circle, #000 2.2px, transparent 2.45px) 0 0 / 6px 6px;
     }
 
-    .section-title {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      align-items: center;
-      gap: 1rem;
-      margin-bottom: clamp(2.5rem, 7vw, 5rem);
+    .invitation-note {
+      position: absolute;
+      left: clamp(1.25rem, 6vw, 4rem);
+      bottom: clamp(1.5rem, 5vw, 2.75rem);
+      margin: 0;
+      color: var(--light);
+      font: 600 .66rem/1 var(--sans);
+      letter-spacing: .28em;
+      text-transform: uppercase;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, .35);
     }
 
-    .section-title span {
-      color: var(--wine);
-      font-size: .8rem;
-      font-style: italic;
-    }
-
-    .section-title .audience {
-      color: var(--ink);
-      font-size: clamp(1.15rem, 4vw, 1.7rem);
-    }
-
-    .section-title::after { height: 1px; background: #292b2240; content: ""; }
+    .section-title { margin-bottom: clamp(2.5rem, 7vw, 4.5rem); }
 
     h2 {
-      grid-column: 1 / -1;
       max-width: 12ch;
       margin: 0;
-      font-size: clamp(2.7rem, 8vw, 5.6rem);
+      font-size: clamp(2.6rem, 8vw, 5.4rem);
       font-weight: 400;
       letter-spacing: -.045em;
       line-height: .95;
     }
 
-    .place-grid, .hotel-grid { display: grid; gap: 1.5rem; }
+    .place-grid, .hotel-grid { display: grid; gap: 2.5rem; }
 
     h3 {
       margin: 0 0 1rem;
-      font-size: clamp(2rem, 6vw, 3.6rem);
+      font-size: clamp(1.9rem, 6vw, 3.4rem);
       font-weight: 400;
       letter-spacing: -.035em;
       line-height: 1;
     }
 
     .copy { padding: .5rem 0 1.5rem; }
-    .copy p, .gallery-later p {
-      max-width: 35rem;
+
+    .copy p {
+      max-width: 34rem;
       margin: 0;
-      font: 1rem/1.7 system-ui, sans-serif;
+      color: #292b22d9;
+      font: 1rem/1.75 var(--sans);
     }
 
-    .map-placeholder {
-      display: grid;
-      min-height: 17rem;
-      place-items: center;
-      border: var(--hairline);
+    .copy p + p { margin-top: .85rem; }
+
+    .copy a {
+      display: inline-block;
+      margin-top: .35rem;
+      padding-bottom: .35em;
+      border-bottom: 1px solid #8d2e2c66;
+      color: var(--wine);
+      font: 600 .76rem/1 var(--sans);
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    .copy a::after { content: " \2197"; letter-spacing: 0; }
+
+    .map {
+      overflow: hidden;
+      border: 1px solid var(--rule);
       background: var(--light);
-      color: #292b2290;
-      font-size: .9rem;
-      font-style: italic;
     }
 
-    .hotel { background: #dfd6c5; }
+    .map iframe {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 17rem;
+      border: 0;
+    }
+
+    .hotel { background: var(--hotel); }
 
     .hotel-note {
       display: grid;
-      min-height: 15rem;
-      padding: 2rem;
-      place-items: center;
       border: 1px solid var(--leaf);
-      color: var(--leaf);
-      font: 1rem/1.8 system-ui, sans-serif;
-      text-align: left;
+      background: var(--light);
+      color: var(--ink);
+      font: .95rem/1.6 var(--sans);
     }
 
-    .hotel-note strong { font-weight: 600; }
+    .hotel-note .contact {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: .35rem 1.5rem;
+      padding: 1.4rem 1.75rem;
+    }
+
+    .hotel-note .contact + .contact { border-top: 1px solid #59664933; }
+
+    .hotel-note strong {
+      font-family: var(--serif);
+      font-size: 1.4rem;
+      font-weight: 400;
+      letter-spacing: -.01em;
+    }
+
+    .hotel-note span { color: #292b22a6; }
 
     .moments { background: var(--light); }
 
     .photo-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: .7rem;
+      gap: .8rem;
       align-items: start;
     }
 
@@ -213,25 +259,38 @@
     .photo-grid figure:not(:first-child) img { aspect-ratio: 3 / 4; }
 
     .gallery-later { background: var(--wine); color: var(--light); }
-    .gallery-later .inner { padding-left: clamp(1rem, 7vw, 7rem); border-left: 1px solid #fbf8f080; }
-    .gallery-later h2 { margin-bottom: 1.5rem; }
+    .gallery-later .audience { color: #fbf8f0b3; }
+    .gallery-later .inner {
+      padding: clamp(1.5rem, 5vw, 2.5rem) 0 clamp(1.5rem, 5vw, 2.5rem) clamp(1.25rem, 7vw, 6rem);
+      border-left: 1px solid #fbf8f066;
+    }
+    .gallery-later h2 { max-width: 14ch; }
 
     footer {
       display: flex;
+      flex-wrap: wrap;
       justify-content: space-between;
-      gap: 1rem;
-      padding: 1.2rem;
+      gap: .5rem 1rem;
+      padding: 1.4rem;
       background: var(--ink);
       color: var(--linen);
-      font: .72rem/1.3 system-ui, sans-serif;
-      letter-spacing: .06em;
+      font: 600 .68rem/1.4 var(--sans);
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+
+    footer .names {
+      color: var(--light);
+      font: italic 400 1rem/1 var(--serif);
+      letter-spacing: 0;
+      text-transform: none;
     }
 
     @media (min-width: 50rem) {
       .wrap { width: min(100% - 5rem, 74rem); }
       .hero-grid { grid-template-columns: .9fr 1.1fr; align-items: center; gap: clamp(3rem, 8vw, 7rem); }
-      .place-grid { grid-template-columns: .8fr 1.2fr; align-items: stretch; gap: 4rem; }
-      .hotel-grid { grid-template-columns: 1.1fr .9fr; align-items: stretch; gap: 4rem; }
+      .place-grid { grid-template-columns: .8fr 1.2fr; align-items: stretch; gap: clamp(3rem, 6vw, 5rem); }
+      .hotel-grid { grid-template-columns: 1.1fr .9fr; align-items: stretch; gap: clamp(3rem, 6vw, 5rem); }
       .photo-grid { grid-template-columns: 1.4fr .8fr .8fr; gap: 1.25rem; align-items: center; }
       .photo-grid figure:first-child { grid-column: auto; }
       footer { padding-inline: 2.5rem; }
@@ -243,7 +302,7 @@
 <body>
   <header class="hero">
     <div class="wrap">
-      <div class="topline"><span>sobota</span><span>Wilanów · Warszawa</span></div>
+      <div class="topline"><span>sobota, 19 czerwca 2027</span><span>Wilanów · Warszawa</span></div>
       <div class="hero-grid">
         <div class="hero-copy">
           <p class="save">Save the date</p>
@@ -260,34 +319,45 @@
   <main>
     <section class="invitation">
       <div class="halftone-grid" aria-label="Zdjęcie Natalii i Tomka w stylu druku rastrowego">
-        <figure class="halftone"><img src="data/1000012606.jpg" width="2048" height="1484" alt="Natalia i Tomek razem" loading="lazy"></figure>
+        <figure class="halftone"><img src="data/1000012606.jpg" width="2048" height="1536" alt="Natalia i Tomek razem" loading="lazy"></figure>
+        <p class="invitation-note">Natalia &amp; Tomek · 19 czerwca 2027</p>
       </div>
     </section>
 
     <section class="place">
       <div class="wrap">
-        <header class="section-title"><h2>Spotykamy się w Wilanowie</h2></header>
+        <header class="section-title">
+          <span class="audience">Miejsce</span>
+          <h2>Spotykamy się w Wilanowie</h2>
+        </header>
         <div class="place-grid">
           <div class="copy">
             <h3>Restauracja Wilanów</h3>
-            <p>Dokładny adres, godzina rozpoczęcia i wskazówki dojazdu pojawią się tutaj, gdy dopniemy szczegóły.</p>
+            <p>ul. Stanisława Kostki Potockiego 27<br>02-958 Warszawa</p>
+            <p>Godzina rozpoczęcia pojawi się tutaj, gdy dopniemy szczegóły.</p>
+            <p><a href="https://maps.app.goo.gl/uqV7rbZPUyRzXrcZ8" target="_blank" rel="noopener">Otwórz w Mapach Google</a></p>
           </div>
-          <div class="map-placeholder" aria-label="Miejsce na mapę dojazdu">tu będzie mała mapa</div>
+          <div class="map">
+            <iframe title="Mapa: Restauracja Wilanów, ul. Stanisława Kostki Potockiego 27, Warszawa" src="https://www.google.com/maps?q=52.1660174,21.0861225&amp;z=16&amp;output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+          </div>
         </div>
       </div>
     </section>
 
     <section class="hotel">
       <div class="wrap">
-        <header class="section-title"><span class="audience">Dla przyjezdnych</span><h2>Nocleg</h2></header>
+        <header class="section-title">
+          <span class="audience">Dla przyjezdnych</span>
+          <h2>Nocleg</h2>
+        </header>
         <div class="hotel-grid">
           <div class="copy">
             <h3>Szczegóły noclegu</h3>
             <p>Informacje o hotelu, rezerwacji i transporcie pojawią się tutaj.</p>
           </div>
           <div class="hotel-note">
-            <div><strong>Natalia</strong><br>telefon: —<br>e-mail: —</div>
-            <div><strong>Tomek</strong><br>telefon: —<br>e-mail: —</div>
+            <div class="contact"><strong>Natalia</strong><span>telefon: — · e-mail: —</span></div>
+            <div class="contact"><strong>Tomek</strong><span>telefon: — · e-mail: —</span></div>
           </div>
         </div>
       </div>
@@ -305,11 +375,12 @@
 
     <section class="gallery-later">
       <div class="wrap inner">
+        <span class="audience">Galeria</span>
         <h2>A po weselu, pojawią się tu zdjęcia</h2>
       </div>
     </section>
   </main>
 
-  <footer><span>19 czerwca 2027</span></footer>
+  <footer><span class="names">Natalia &amp; Tomek</span><span>19 czerwca 2027</span></footer>
 </body>
 </html>
