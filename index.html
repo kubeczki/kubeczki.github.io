@@ -224,24 +224,30 @@
     }
 
     .hotel-note .contact {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: .35rem 1.5rem;
+      display: grid;
+      gap: .3rem;
       padding: 1.4rem 1.75rem;
     }
 
     .hotel-note .contact + .contact { border-top: 1px solid #59664933; }
 
     .hotel-note strong {
+      margin-bottom: .35rem;
       font-family: var(--serif);
       font-size: 1.4rem;
       font-weight: 400;
       letter-spacing: -.01em;
     }
 
-    .hotel-note span { color: #292b22a6; }
+    .hotel-note a {
+      width: fit-content;
+      padding-bottom: .1em;
+      border-bottom: 1px solid #5966494d;
+      color: var(--leaf);
+      text-decoration: none;
+    }
+
+    .hotel-note a:hover { color: var(--wine); border-color: currentColor; }
 
     .moments { background: var(--light); }
 
@@ -356,8 +362,16 @@
             <p>Informacje o hotelu, rezerwacji i transporcie pojawią się tutaj.</p>
           </div>
           <div class="hotel-note">
-            <div class="contact"><strong>Natalia</strong><span>telefon: — · e-mail: —</span></div>
-            <div class="contact"><strong>Tomek</strong><span>telefon: — · e-mail: —</span></div>
+            <div class="contact">
+              <strong>Natalia</strong>
+              <a href="tel:+48514070972">+48 514 070 972</a>
+              <a href="mailto:natalia.huzarewicz@gmail.com">natalia.huzarewicz@gmail.com</a>
+            </div>
+            <div class="contact">
+              <strong>Tomek</strong>
+              <a href="tel:+48608778866">+48 608 778 866</a>
+              <a href="mailto:twojtalewicz78@gmail.com">twojtalewicz78@gmail.com</a>
+            </div>
           </div>
         </div>
       </div>
